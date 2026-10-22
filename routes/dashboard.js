@@ -1,21 +1,13 @@
 "use strict";
 
 const { Router } = require("express");
+const { dashboardController } = require("../controllers/dashboard");
 
 function createDashboardRouter({ garmin, getDatabase }) {
   const router = Router();
-  router.get("/dashboard", async (req, res) => {
-    const database = getDatabase();
-    const profile = req.profile;
-    const client = await garmin.getClient(profile.id);
-    res.json({
-      profile,
-      garmin: client.getTokenStatus(),
-      storage: { ready: true, type: "mariadb" },
-      measurements: { state: "not_imported", lastSyncAt: null, daily: [] },
-      sessions: await database.listSessions(profile.id),
-    });
-  });
+  const controller = dashboardController({ garmin, getDatabase });
+  router.get('/dashboard', controller.read);
+  router.post('/garmin/sync', controller.sync);
   router.get("/sessions", async (req, res) =>
     res.json({ sessions: await getDatabase().listSessions(req.profile.id) }),
   );

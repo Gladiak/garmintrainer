@@ -51,11 +51,13 @@ function createApp({ garminManager, databaseProvider = getMariaDatabase, config 
       return res.status(error.statusCode).json({ error: { code: error.code, message: error.message, ...(error.messageKey ? { messageKey: error.messageKey } : {}) } });
     }
     if (error instanceof GarminApiError) {
+      if (error.retryAt) res.set('Retry-After', String(Math.max(1, Math.ceil((error.retryAt - Date.now()) / 1000))));
       return res.status(error.statusCode).json({
         error: {
           code: error.code,
           message: error.message,
           upstreamStatus: error.upstreamStatus,
+          retryAt: error.retryAt,
         },
       });
     }

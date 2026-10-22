@@ -22,6 +22,18 @@ services:
           target: /app/libs
           initial_sync: true
         - action: sync+restart
+          path: ./controllers
+          target: /app/controllers
+          initial_sync: true
+        - action: sync+restart
+          path: ./helpers
+          target: /app/helpers
+          initial_sync: true
+        - action: sync+restart
+          path: ./db/migrations
+          target: /app/db/migrations
+          initial_sync: true
+        - action: sync+restart
           path: ./routes
           target: /app/routes
           initial_sync: true

@@ -55,14 +55,6 @@ button:disabled {
 button {
   color: inherit;
 }
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--sage-strong);
-  outline-offset: 4px;
-}
 a {
   color: inherit;
   text-decoration: none;
@@ -1487,6 +1479,11 @@ h1 > span {
   color: var(--text-muted);
   font-weight: 400;
 }
+.session-form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.session-form select {
+  min-height: 44px;
+  line-height: 1.5;
+}
 .session-form input:hover,
 .session-form select:hover,
 .session-form textarea:hover {
@@ -2054,7 +2051,9 @@ h1 > span {
     display: none;
   }
   .refresh-button {
-    display: none;
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
   }
   .data-notice {
     flex-wrap: wrap;
@@ -2813,6 +2812,25 @@ h1 > span {
   color: var(--text-muted);
   line-height: 1.6;
 }
+.profile-garmin-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--moss-soft);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.profile-garmin-status svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.profile-garmin-status strong {
+  color: var(--ink);
+}
 .profile-form .remove-key {
   display: flex;
   flex-direction: row;
@@ -3132,13 +3150,6 @@ h1 > span {
 .button.primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--sage-strong) 88%, var(--ink));
 }
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline-color: var(--focus-color);
-}
 .metric-icon,
 .tone-sage .metric-icon,
 .tone-moss .metric-icon,
@@ -3313,7 +3324,68 @@ textarea:focus-visible {
 
 /* Profile selector and separate settings dialog. */
 .settings-modal {
-  width: min(620px, calc(100vw - 36px));
+  width: min(1080px, calc(100vw - 36px));
+  height: min(760px, calc(100dvh - 44px));
+}
+.settings-modal .modal-body {
+  display: flex;
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  width: 100%;
+  min-height: 0;
+}
+.settings-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 22px 14px;
+  background: var(--ivory);
+  border-right: 1px solid var(--border);
+}
+.settings-section-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 12px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.settings-section-button:hover:not(:disabled) {
+  background: var(--mist);
+  color: var(--ink);
+}
+.settings-section-button[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.settings-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 28px;
+}
+.settings-form {
+  min-height: 100%;
+}
+.settings-form .modal-subtitle {
+  margin: 0;
+}
+.settings-form .modal-actions {
+  margin-top: auto;
+  padding-top: 24px;
 }
 .settings-form fieldset {
   border: 0;
@@ -3342,6 +3414,42 @@ textarea:focus-visible {
 .settings-form .theme-picker {
   border: 0;
   padding: 0;
+}
+@media (max-width: 700px) {
+  .settings-layout {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+  .settings-navigation {
+    padding: 16px 8px;
+  }
+  .settings-section-button {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 8px;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+  .settings-panel {
+    padding: 20px 16px;
+  }
+  .settings-modal .theme-options {
+    grid-template-columns: 1fr;
+  }
+  .settings-form .modal-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 420px) {
+  .settings-layout {
+    grid-template-columns: 118px minmax(0, 1fr);
+  }
+  .settings-section-button {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .settings-panel {
+    padding: 16px 12px;
+  }
 }
 .theme-picker .theme-option.is-selected {
   background: var(--accent-soft);
@@ -3555,9 +3663,13 @@ textarea:focus-visible {
 .sidebar-profile {
   flex-shrink: 0;
 }
+.sidebar-bottom {
+  margin-top: auto;
+  flex-shrink: 0;
+}
 .sidebar-account {
   position: relative;
-  margin-top: auto;
+  margin-top: 0;
   flex-shrink: 0;
 }
 .sidebar-account .sidebar-profile {
@@ -3567,12 +3679,6 @@ textarea:focus-visible {
 .sidebar-account .sidebar-profile:hover,
 .sidebar-account .sidebar-profile[aria-expanded="true"] {
   background: var(--moss-soft);
-}
-.sidebar-account .sidebar-profile:focus-visible,
-.sidebar-account-menu button:focus-visible {
-  outline: 2px solid var(--sage-strong);
-  outline-offset: -2px;
-  border-radius: 8px;
 }
 .sidebar-account-menu {
   position: absolute;
@@ -3598,8 +3704,7 @@ textarea:focus-visible {
   font-weight: 500;
   color: var(--ink);
 }
-.sidebar-account-menu button:hover,
-.sidebar-account-menu button:focus {
+.sidebar-account-menu button:hover {
   background: var(--moss-soft);
 }
 .sidebar-account-menu button svg {
@@ -3884,6 +3989,20 @@ h1 > span,
 .auth-panel { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 100px 48px 48px; }
 .auth-language { position: absolute; top: 28px; right: 32px; display: flex; align-items: center; gap: 12px; color: var(--text-muted, #666); font-size: 12px; }
 .auth-language select { border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 8px 12px; background: var(--surface, #fff); color: inherit; font: inherit; }
+/* Keep the native menu and keyboard controls, with a consistent closed field. */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-inline-end: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right 17px center,
+    right 12px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
 .auth-card { width: 100%; max-width: 420px; margin: auto; }
 .auth-card h2 { font-size: 32px; letter-spacing: -1px; margin: 14px 0 10px; }
 .auth-card > p:not(.eyebrow) { color: var(--text-muted, #666); line-height: 1.7; font-size: 14px; }
@@ -3893,6 +4012,10 @@ h1 > span,
 .auth-submit { width: 100%; justify-content: center; margin-top: 22px; min-height: 46px; }
 .auth-switch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
 .auth-loading { min-height: 100dvh; display: flex; gap: 16px; align-items: center; justify-content: center; flex-direction: column; }
+/* Keep keyboard interaction without a visual focus outline. */
+:focus {
+  outline: none;
+}
 @media (max-width: 780px) {
   .auth-page { grid-template-columns: 1fr; }
   .auth-story { padding: 28px; gap: 28px; }
@@ -3902,4 +4025,19 @@ h1 > span,
   .auth-story p { margin-bottom: 0; }
   .auth-panel { padding: 84px 28px 36px; }
   .auth-language { top: 20px; right: 28px; }
+}
+
+.measurement-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.measurement-navigation > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }

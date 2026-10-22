@@ -12,6 +12,15 @@ function createMemoryRepository() {
   const credentials = new Map();
   const authSessions = new Map();
   const sessions = new Map();
+  const connections = new Map();
+  const measurements = new Map();
+  const syncStates = new Map();
+  const syncLocks = new Map();
+  function checkGarminWriter(profile, owner) {
+    if (getProfile(profile.id).credentialRevision !== profile.credentialRevision || syncLocks.get(profile.id) !== owner) {
+      throw new InputError('Collegamento cambiato.', 409, 'PROFILE_CREDENTIAL_CHANGED');
+    }
+  }
   const now = () => new Date().toISOString();
   function getProfile(id) {
     const row = profiles.get(id);
@@ -29,6 +38,35 @@ function createMemoryRepository() {
   }
   return {
     ready() {},
+    getGarminConnection(profileId) { return structuredClone(connections.get(profileId) || null); },
+    connectGarmin(profile, identity, settings, owner) {
+      checkGarminWriter(profile, owner);
+      const previous = connections.get(profile.id);
+      const value = { id: previous?.identity === identity ? previous.id : randomUUID(), identity,
+        revision: profile.credentialRevision, updatedAt: Date.now(), ...settings };
+      connections.set(profile.id, value);
+      return structuredClone(value);
+    },
+    readGarminRows(profileId, connectionId, resource, days) {
+      return days.flatMap(day => {
+        const value = measurements.get(`${profileId}:${connectionId}:${resource}:${day}`);
+        return value ? [structuredClone(value)] : [];
+      });
+    },
+    saveGarminRows(profile, connectionId, resource, records, owner) {
+      checkGarminWriter(profile, owner);
+      for (const record of records) measurements.set(`${profile.id}:${connectionId}:${resource}:${record.date}`, { ...structuredClone(record), fetchedAt: Date.now() });
+    },
+    getGarminSyncState(profileId) { return [...syncStates.values()].filter(row => row.profileId === profileId); },
+    setGarminSyncState(profile, resource, error, owner) {
+      checkGarminWriter(profile, owner);
+      syncStates.set(`${profile.id}:${resource}`, { profileId: profile.id, resource, errorCode: error?.code || null, retryAt: error?.retryAt || null, lastAttemptAt: Date.now() });
+    },
+    acquireGarminSync(profileId, owner) {
+      if (syncLocks.has(profileId)) return false;
+      syncLocks.set(profileId, owner); return true;
+    },
+    releaseGarminSync(profileId, owner) { if (syncLocks.get(profileId) === owner) syncLocks.delete(profileId); },
     createUser({ username, email, passwordHash }) {
       if ([...users.values()].some(user => user.username.toLowerCase() === username.toLowerCase() || user.email.toLowerCase() === email.toLowerCase())) throw new InputError('Account esistente.', 409, 'ACCOUNT_EXISTS');
       const id = randomUUID(); const profileId = randomUUID(); const createdAt = now();
@@ -83,7 +121,7 @@ function createMemoryRepository() {
       return { ...sessions.get(id) };
     },
     deleteSession(profileId, id) { findSession(profileId, id); sessions.delete(id); },
-    close() { for (const map of [users, profiles, credentials, authSessions, sessions]) map.clear(); },
+    close() { for (const map of [users, profiles, credentials, authSessions, sessions, connections, measurements, syncStates, syncLocks]) map.clear(); },
   };
 }
 

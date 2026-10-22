@@ -19,6 +19,8 @@ COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node package.json app.js ./
 COPY --chown=node:node libs ./libs
 COPY --chown=node:node routes ./routes
+COPY --chown=node:node controllers ./controllers
+COPY --chown=node:node helpers ./helpers
 COPY --chown=node:node langs ./langs
 COPY --chown=node:node db/migrations ./db/migrations
 USER node

@@ -9,7 +9,7 @@ const action = process.argv[2] || "deploy";
 const actions = ["deploy", "status", "logs", "backup", "verify"];
 if (action === "--help") {
   console.log(
-    `Uso: npm run deploy:vps -- [${actions.join("|")}]\nConfigurazione: deploy/vps.json. Nessun secret locale viene trasferito.`,
+    `Uso: npm run deploy:vps -- [${actions.join("|")}]\nConfigurazione: deploy/vps.json. Nessun secret locale viene trasferito.\nSSH richiede la password se necessaria e riusa la connessione per tutta l'operazione.`,
   );
   process.exit(0);
 }
@@ -37,7 +37,11 @@ const options = [
   "-i",
   identity,
   "-o",
-  "BatchMode=yes",
+  "BatchMode=no",
+  "-o",
+  "ControlMaster=auto",
+  "-o",
+  "ControlPersist=60",
   "-o",
   "ConnectTimeout=15",
   "-o",
@@ -64,6 +68,9 @@ function ssh(command) {
 
 let temporary;
 try {
+  // Keep the authenticated connection in a private socket shared by ssh and scp.
+  temporary = mkdtempSync(join(tmpdir(), "garmintrainer-deploy-"));
+  options.push("-o", `ControlPath=${join(temporary, "ssh")}`);
   if (action === "deploy") {
     const release = `${new Date()
       .toISOString()
@@ -71,7 +78,6 @@ try {
       .replace(/\.\d+Z$/, "Z")}-${process.pid}`;
     const incoming = `${config.directory}/incoming/${release}.tgz`;
     const destination = `${config.directory}/releases/${release}`;
-    temporary = mkdtempSync(join(tmpdir(), "garmintrainer-deploy-"));
     const archive = join(temporary, "release.tgz");
     // Explicit allowlist: never include .git, data/, unlock keys or host dependencies.
     run("tar", [
@@ -85,6 +91,8 @@ try {
       "app.js",
       "libs",
       "routes",
+      "controllers",
+      "helpers",
       "langs",
       "db/migrations/mariadb",
       "frontend",
@@ -110,5 +118,12 @@ try {
   );
   process.exitCode = 1;
 } finally {
-  if (temporary) rmSync(temporary, { recursive: true, force: true });
+  if (temporary) {
+    // Closing a missing/already closed master must not hide the original error.
+    spawnSync("ssh", [...options, "-O", "exit", config.host], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    rmSync(temporary, { recursive: true, force: true });
+  }
 }

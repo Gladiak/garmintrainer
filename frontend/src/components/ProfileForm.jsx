@@ -1,13 +1,13 @@
 import { DEFAULT_LANGUAGE, LANGUAGES, i18n, messageText, t, translationError } from '../lib/i18n';
 import { useTranslation } from '../hooks/useTranslation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Camera, LoaderCircle, ShieldCheck, Trash2 } from 'lucide-react';
+import { Camera, Link2, LoaderCircle, ShieldCheck, Trash2 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 export const PRIMARY_SPORT_LABELS = { running: 'sports.running', cycling: 'sports.cycling', swimming: 'sports.swimming', gym: 'sports.gym', hiit: 'sports.hiit' };
 export const profileName = (profile) => [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || t('profile.incomplete');
 
-export default function ProfileForm({ profile, activeProfileId, onBack, onSave, onBusyChange, required = false }) {
+export default function ProfileForm({ profile, garminStatusKey = 'connection.linkGarmin', activeProfileId, onBack, onSave, onBusyChange, required = false }) {
   useTranslation();
   const editingId = profile?.id || null;
   const [firstName, setFirstName] = useState(profile?.firstName || '');
@@ -82,6 +82,7 @@ export default function ProfileForm({ profile, activeProfileId, onBack, onSave, 
         <label>{t('profile.apiKey')}<input name="garminApiKey" type="password" autoComplete="new-password" spellCheck={false} value={apiKey} onChange={(event) => { setApiKey(event.target.value); setRemoveKey(false); }} disabled={removeKey} maxLength={8192} placeholder={profile?.hasGarminKey ? t('profile.savedKey') : t('profile.enterKey')} aria-describedby="garmin-key-help" /></label>
         <p id="garmin-key-help" className="credential-help">{t('profile.keyHelp')}</p>
         {profile?.hasGarminKey && <label className="remove-key"><input type="checkbox" checked={removeKey} onChange={(event) => { setRemoveKey(event.target.checked); setApiKey(''); }} />{t('profile.removeKey')}</label>}
+        <p className="profile-garmin-status" role="status"><Link2 size={16} aria-hidden="true" /><span>{t('profile.garminStatus')}: <strong>{t(garminStatusKey)}</strong></span></p>
       </fieldset>
 
       <p className="profile-privacy"><ShieldCheck size={16} />{t('profile.privacy')}</p>

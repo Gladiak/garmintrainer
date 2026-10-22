@@ -1,8 +1,8 @@
 import { getLanguage, languageLocale, t } from './i18n.js';
 
-export function today() {
+export function today(timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC') {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(new Date());
   const part = (type) => parts.find((item) => item.type === type).value;
   return `${part('year')}-${part('month')}-${part('day')}`;
@@ -25,7 +25,8 @@ export function formatDay(day, options = {}) {
 }
 
 export function durationLabel(minutes) {
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return hours ? `${t('common.hours', { count: hours })}${remainder ? ` ${t('common.minutes', { count: remainder })}` : ''}` : t('common.minutes', { count: minutes });
+  const rounded = Math.round(minutes);
+  const hours = Math.floor(rounded / 60);
+  const remainder = rounded % 60;
+  return hours ? `${t('common.hours', { count: hours })}${remainder ? ` ${t('common.minutes', { count: remainder })}` : ''}` : t('common.minutes', { count: rounded });
 }

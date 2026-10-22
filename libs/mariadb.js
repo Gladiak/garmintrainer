@@ -7,6 +7,7 @@ const mariadb = require('mariadb');
 const { readConfig } = require('./config');
 const { createCredentialVault } = require('./credentials');
 const { InputError, validateProfile, validateSession } = require('./validation');
+const { createGarminRepository } = require('../helpers/garmin-repository');
 const themes = new Set(require('./themes.json').map(theme => theme.id));
 
 async function createMariaDatabase(config = readConfig()) {
@@ -21,11 +22,17 @@ async function createMariaDatabase(config = readConfig()) {
     try {
       await connection.query('CREATE TABLE IF NOT EXISTS schema_migrations (version INT PRIMARY KEY)');
       const versions = await connection.query('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1');
-      if (versions[0]?.version > 1) throw new Error('Il database richiede una versione più recente dell’app.');
-      if (!versions.length) {
-        const sql = fs.readFileSync(path.join(__dirname, '../db/migrations/mariadb/001-accounts.sql'), 'utf8');
+      const directory = path.join(__dirname, '../db/migrations/mariadb');
+      const migrations = fs.readdirSync(directory).filter(name => /^\d+-.*\.sql$/.test(name)).sort();
+      const currentVersion = versions[0]?.version || 0;
+      const latestVersion = Number(migrations.at(-1).split('-')[0]);
+      if (currentVersion > latestVersion) throw new Error('Il database richiede una versione più recente dell’app.');
+      for (const filename of migrations) {
+        const version = Number(filename.split('-')[0]);
+        if (version <= currentVersion) continue;
+        const sql = fs.readFileSync(path.join(directory, filename), 'utf8');
         for (const statement of sql.split(';').map(value => value.trim()).filter(Boolean)) await connection.query(statement);
-        await connection.query('INSERT INTO schema_migrations(version) VALUES (1)');
+        await connection.query('INSERT INTO schema_migrations(version) VALUES (?)', [version]);
       }
     } finally { await connection.query("SELECT RELEASE_LOCK('garmintrainer_schema')"); }
     if (!fs.existsSync(config.encryptionKeyPath)) throw new Error('Chiave di cifratura assente. Ripristina il secret encryption_key dal backup.');
@@ -68,6 +75,7 @@ async function createMariaDatabase(config = readConfig()) {
   async function getProfile(id) { return profileData((await query('SELECT * FROM profiles WHERE id = ?', [id]))[0]); }
   async function findSession(profileId, id) { return (await query(`SELECT ${sessionProjection} FROM planned_sessions WHERE id = ? AND profile_id = ?`, [id, profileId]))[0]; }
   return {
+    ...createGarminRepository({ query, transaction, keyPath: config.encryptionKeyPath }),
     async ready() { await query('SELECT 1'); },
     async createUser({ username, email, passwordHash }) {
       const id = randomUUID(); const profileId = randomUUID(); const createdAt = now();

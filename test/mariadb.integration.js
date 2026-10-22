@@ -31,7 +31,14 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     await admin.end();
     fs.rmSync(directory, { recursive: true, force: true });
   });
+  // Start with the previous schema to exercise a real v1 -> v2 upgrade.
+  await admin.query(`USE ${schema}`);
+  const legacy = fs.readFileSync(path.join(__dirname, '../db/migrations/mariadb/001-accounts.sql'), 'utf8');
+  for (const statement of legacy.split(';').map(value => value.trim()).filter(Boolean)) await admin.query(statement);
+  await admin.query('CREATE TABLE schema_migrations(version INT PRIMARY KEY)');
+  await admin.query('INSERT INTO schema_migrations(version) VALUES (1)');
   database = await createMariaDatabase(config);
+  assert.equal(Number((await admin.query('SELECT MAX(version) AS version FROM schema_migrations'))[0].version), 2);
   const base = await listen(t, createApp({ databaseProvider: () => database, config }));
   const send = (endpoint, { method = 'GET', body, headers = {} } = {}) => fetch(`${base}/api${endpoint}`, {
     method, headers: { ...headers, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body),
@@ -109,6 +116,29 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.equal((await send('/garmin/auth/ensure', { method: 'POST', headers: headersA })).status, 200);
     assert.equal(provider.state.tokenRequests, 1);
   });
+  const { dateInZone, shiftDate } = require('../helpers/garmin-dates');
+  const measurementDay = dateInZone('Europe/Rome');
+  const measurementInput = { from: shiftDate(measurementDay, -6), to: measurementDay, activityFrom: measurementDay, activityTo: measurementDay, timeZone: 'Europe/Rome' };
+  await t.test('misure reali simulate: date, valori e ID sono cifrati in SQL, con isolamento fra utenti', async () => {
+    provider.state.measurements = true;
+    const response = await send('/garmin/sync', { method: 'POST', headers: headersA, body: measurementInput });
+    assert.equal(response.status, 200, await response.clone().text());
+    const result = await response.json();
+    assert.equal(result.measurements.daily.at(-1).heartRateReferenceBpm, 57);
+    assert.equal(result.measurements.daily.at(-1).sleepMinutes, 480);
+    const stored = await admin.query('SELECT * FROM garmin_measurements WHERE profile_id = ?', [a.profile.id]);
+    assert.ok(stored.length >= 90);
+    for (const row of stored) {
+      assert.match(row.payload, /^v1\./);
+      assert.ok(!row.payload.includes(measurementDay));
+      assert.ok(!row.payload.includes('heartRateReferenceBpm'));
+      assert.ok(!row.payload.includes('9007199254740993'));
+      assert.match(row.day_lookup, /^[a-f0-9]{64}$/);
+    }
+    const other = await (await send('/dashboard', { headers: headersB })).json();
+    assert.deepEqual(other.measurements.daily, []);
+    assert.deepEqual(other.activities.sessions, []);
+  });
   await t.test('sessioni e profilo persistono quando il repository viene riaperto', async () => {
     await database.close(); database = null;
     database = await createMariaDatabase(config);
@@ -121,6 +151,9 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.equal((await database.listSessions(a.profile.id))[0].id, session.id);
     assert.equal((await database.getGarminCredential(a.profile.id)).apiKey, TEST_API_KEY);
     assert.equal((await (await send('/auth/session', { headers: headersB })).json()).profile.needsCompletion, true);
+    const restoredMeasures = await (await send(`/dashboard?${new URLSearchParams(measurementInput)}`, { headers: headersA })).json();
+    assert.equal(restoredMeasures.measurements.daily.at(-1).hrv, 48);
+    assert.equal(restoredMeasures.activities.sessions[0].id, '9007199254740997');
   });
   await t.test('cookie invalidati al logout e scadenza applicata dal database', async () => {
     assert.equal((await send('/auth/logout', { method: 'POST', headers: { Cookie: cookieA } })).status, 403);

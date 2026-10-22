@@ -2,44 +2,10 @@
 
 const axios = require('axios');
 const { DEFAULT_BASE_URL, readConfig } = require('./config');
+const { withGarminRequest, parseGarminJson } = require('../helpers/garmin-http');
+const { GarminApiError, safeHttpError } = require('../helpers/garmin-errors');
+const { personalApiToken, TOKEN_PATH } = require('../controllers/garmin-token');
 
-const TOKEN_PATH = '/personalapitoken-service/personal-api/personal-api-key/token';
-
-class GarminApiError extends Error {
-  constructor(code, message, { statusCode = 502, upstreamStatus = null } = {}) {
-    super(message);
-    this.name = 'GarminApiError';
-    this.code = code;
-    this.statusCode = statusCode;
-    this.upstreamStatus = upstreamStatus;
-  }
-}
-
-function safeHttpError(error, operation) {
-  const upstreamStatus = error.response?.status ?? null;
-  if (upstreamStatus === 401 || (operation === 'token' && upstreamStatus === 403)) {
-    return new GarminApiError(
-      'GARMIN_AUTH_FAILED',
-      'Accesso Garmin non consentito: verificare validità e scadenza della chiave personale.',
-      { statusCode: 503, upstreamStatus },
-    );
-  }
-  if (upstreamStatus === 403) {
-    return new GarminApiError('GARMIN_FORBIDDEN', 'Garmin non consente l\'accesso alla risorsa richiesta.', {
-      upstreamStatus,
-    });
-  }
-  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-    return new GarminApiError('GARMIN_TIMEOUT', 'Garmin non ha risposto entro il tempo previsto.', {
-      statusCode: 504,
-    });
-  }
-  return new GarminApiError(
-    operation === 'token' ? 'GARMIN_TOKEN_REQUEST_FAILED' : 'GARMIN_REQUEST_FAILED',
-    'La richiesta a Garmin non è riuscita.',
-    { upstreamStatus },
-  );
-}
 
 function validateBaseUrl(value) {
   let url;
@@ -73,11 +39,14 @@ function createGarminClient({
     baseURL: validateBaseUrl(baseUrl),
     timeout: timeoutMs,
     maxRedirects: 0,
+    maxContentLength: 8 * 1024 * 1024,
+    paramsSerializer: { indexes: null },
   });
 
   // Credenziali e richiesta in corso restano private nella closure del client.
   let token = null;
   let pendingToken = null;
+  let limitedUntil = 0;
 
   function decodeToken(accessToken) {
     try {
@@ -103,23 +72,21 @@ function createGarminClient({
   }
 
   async function obtainToken() {
-    let response;
-    try {
-      response = await http.post(TOKEN_PATH, undefined, {
-        headers: { Authorization: `ApiKey ${key}`, Accept: '*/*' },
-        responseType: 'text',
-        transformResponse: [(body) => body],
-      });
-    } catch (error) {
-      // Non propagare l'errore Axios: contiene gli header con le credenziali.
-      throw safeHttpError(error, 'token');
+    let accessToken;
+    try { accessToken = await personalApiToken(http, key); }
+    catch (error) {
+      if (error instanceof GarminApiError) throw error;
+      const failure = safeHttpError(error, 'token');
+      if (failure.retryAt) limitedUntil = failure.retryAt;
+      throw failure;
     }
-    const nextToken = decodeToken(typeof response.data === 'string' ? response.data.trim() : '');
+    const nextToken = decodeToken(accessToken);
     token = nextToken;
     return nextToken;
   }
 
   async function getTokenRecord() {
+    if (limitedUntil > Date.now()) throw new GarminApiError('GARMIN_RATE_LIMIT', 'Garmin richiede di attendere.', { statusCode: 429, retryAt: limitedUntil });
     if (!key) {
       throw new GarminApiError('GARMIN_NOT_CONFIGURED', 'Chiave personale Garmin non configurata.', {
         statusCode: 503,
@@ -152,32 +119,42 @@ function createGarminClient({
     return (await getTokenRecord()).accessToken;
   }
 
-  async function get(path, { params } = {}) {
+  async function get(path, { params, signal, binary = false } = {}) {
     if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')
         || /[\\?#\s\u0000-\u001f]/.test(path)) {
       throw new TypeError('Usare un percorso API relativo; passare le query tramite params');
     }
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      signal?.throwIfAborted();
       const usedToken = await getTokenRecord();
       let response;
       try {
-        response = await http.get(path, {
+        response = await withGarminRequest(() => {
+          if (limitedUntil > Date.now()) throw new GarminApiError('GARMIN_RATE_LIMIT', 'Garmin richiede di attendere.', { statusCode: 429, retryAt: limitedUntil });
+          return http.get(path, {
           params,
-          headers: { Authorization: `Bearer ${usedToken.accessToken}`, Accept: 'application/json' },
+          signal,
+          timeout: Math.min(timeoutMs, 15_000),
+          headers: { Authorization: `Bearer ${usedToken.accessToken}`, Accept: binary ? 'application/x-zip-compressed' : 'application/json' },
           // Leggere prima lo status: anche un 401 con corpo HTML deve produrre il rinnovo.
-          responseType: 'text',
+          responseType: binary ? 'arraybuffer' : 'text',
           transformResponse: [(body) => body],
-        });
+          });
+        }, signal);
       } catch (error) {
+        if (error instanceof GarminApiError) throw error;
         if (error.response?.status === 401) {
           // Un 401 tardivo del vecchio token non deve invalidare un rinnovo già concluso.
           if (token === usedToken) token = null;
           if (attempt === 0) continue;
         }
-        throw safeHttpError(error, 'data');
+        const failure = safeHttpError(error, 'data');
+        if (failure.retryAt) limitedUntil = failure.retryAt;
+        throw failure;
       }
       if (response.status === 204 || response.data === '') return null;
-      try { return JSON.parse(response.data); } catch {
+      if (binary) return response.data;
+      try { return parseGarminJson(response.data); } catch {
         throw new GarminApiError('GARMIN_INVALID_RESPONSE', 'Garmin ha restituito dati JSON non validi.');
       }
     }

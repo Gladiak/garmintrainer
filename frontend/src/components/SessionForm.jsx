@@ -6,7 +6,7 @@ import Modal from './Modal';
 
 export const SPORT_LABELS = { running: 'sports.running', cycling: 'sports.cycling', strength: 'sports.strength', walking: 'sports.walking', mobility: 'sports.mobility', swimming: 'sports.swimming' };
 
-export default function SessionForm({ date, onClose, onSave, preview = false }) {
+export default function SessionForm({ date, onClose, onSave }) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -19,7 +19,7 @@ export default function SessionForm({ date, onClose, onSave, preview = false }) 
     catch (failure) { setError(failure); setSaving(false); }
   }
   return (
-    <Modal title={t('session.title')} subtitle={t(preview ? 'demo.sessionSubtitle' : 'session.subtitle')} onClose={saving ? () => {} : onClose}>
+    <Modal title={t('session.title')} subtitle={t('session.subtitle')} onClose={saving ? () => {} : onClose}>
       <form onSubmit={submit} className="session-form">
         <label>{t('session.name')}<input autoFocus name="title" placeholder={t('session.namePlaceholder')} required maxLength={120} /></label>
         <div className="form-grid">

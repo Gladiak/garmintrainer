@@ -7,11 +7,12 @@ training plan and saved language and theme preferences.
 ## Features
 
 - Create, complete, reopen and delete workout sessions in the weekly planner.
-- Review completed training hours across two months, with colour bands that
-  make training load easy to compare. Planned and future sessions do not count
-  toward completed load.
-- Explore a sample training plan and wellness charts in preview mode. Preview
-  changes stay in browser memory and do not modify saved sessions.
+- Review recorded Garmin activity hours across two months, with colour bands
+  that make activity time easy to compare. The local planner remains separate.
+- Display real Garmin heart rate, HRV, Body Battery, stress and sleep summaries.
+  Browse historical intervals and refresh the displayed data on demand.
+- Keep imported measurements encrypted in MariaDB, including their dates and
+  Garmin identifiers. Missing device measurements stay explicitly unavailable.
 - Manage a personal profile with name, main sport, optional photo and Garmin key.
 - Use English, Italian, French, Spanish or German and choose among six themes.
   Saved preferences persist across sessions.
@@ -19,9 +20,11 @@ training plan and saved language and theme preferences.
 ## Project status
 
 Account management, profiles and the workout planner persist in MariaDB.
-Garmin token preparation and renewal are available with a saved Garmin key.
-Real Garmin measurement import is still pending, wellness charts are empty
-outside preview, and training plans are not sent to Garmin devices.
+A saved personal Garmin key enables automatic token preparation and import of
+real dashboard measurements. First access retrieves 30 days of summaries;
+subsequent navigation retrieves the needed intervals, and Refresh downloads the
+displayed intervals again. The dashboard has no sample-data mode.
+Training plans are not sent to Garmin devices.
 Email delivery, email verification and password reset are not implemented.
 
 ## Technology
@@ -29,7 +32,10 @@ Email delivery, email verification and password reset are not implemented.
 The frontend uses React and Vite, the API uses Node.js and Express, and MariaDB
 stores accounts, profiles and workouts. Docker Compose runs the application and
 database in separate containers and applies database migrations at startup.
-The interface translation catalogs are in `langs/`.
+The interface translation catalogs are in `langs/`. Garmin endpoint controllers
+are in `controllers/`; shared transport, validation, normalization and encrypted
+storage helpers are in `helpers/`. The public API catalog and design study are
+in [API_SCHEMA.md](API_SCHEMA.md).
 
 ## Requirements
 
