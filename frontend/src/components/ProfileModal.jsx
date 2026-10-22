@@ -1,3 +1,5 @@
+import { messageText } from '../lib/i18n';
+import { useTranslation } from '../hooks/useTranslation';
 import { useState } from 'react';
 import { Check, ChevronRight, LoaderCircle, Pencil, Plus, Search, Trash2, UsersRound } from 'lucide-react';
 import Modal from './Modal';
@@ -7,57 +9,58 @@ import ProfileForm, { PRIMARY_SPORT_LABELS, profileName } from './ProfileForm';
 export { PRIMARY_SPORT_LABELS, profileName } from './ProfileForm';
 
 export default function ProfileModal({ profiles, profileId, initialView = 'list', onClose, onSave, onSelect, onDelete }) {
+  const { t, locale } = useTranslation();
   // One dialog and view state serve the list, the shared create/edit form and deletion.
   const [view, setView] = useState({ name: initialView, id: initialView === 'form' ? profileId : null });
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const profile = profiles.find((item) => item.id === view.id);
-  const query = search.trim().toLocaleLowerCase('it');
-  const filtered = profiles.filter((item) => `${profileName(item)} ${PRIMARY_SPORT_LABELS[item.primarySport] || ''}`.toLocaleLowerCase('it').includes(query));
+  const query = search.trim().toLocaleLowerCase(locale);
+  const filtered = profiles.filter((item) => `${profileName(item)} ${t(PRIMARY_SPORT_LABELS[item.primarySport] || 'profile.incomplete')}`.toLocaleLowerCase(locale).includes(query));
   const back = () => { setBusy(false); setError(''); setView({ name: 'list', id: null }); };
   const open = (name, id = null) => { setError(''); setView({ name, id }); };
   async function select(id) {
     if (id === profileId) return;
     setBusy(true); setError('');
-    try { await onSelect(id); } catch (failure) { setError(failure.message); }
+    try { await onSelect(id); } catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }
   async function remove() {
     setBusy(true); setError('');
     try { await onDelete(profile.id); back(); }
-    catch (failure) { setError(failure.message); setBusy(false); }
+    catch (failure) { setError(failure); setBusy(false); }
   }
-  const title = view.name === 'list' ? 'Profili locali' : view.name === 'delete' ? 'Eliminare il profilo?' : profile ? 'Modifica profilo' : 'Nuovo profilo';
+  const title = view.name === 'list' ? t('profile.listTitle') : view.name === 'delete' ? t('profile.deleteTitle') : profile ? t('profile.editTitle') : t('profile.newTitle');
   return <Modal className="profile-modal" title={title}
-    subtitle={view.name === 'list' ? 'Scegli il tuo spazio. Ogni profilo ha dati, piano e collegamento Garmin personali.' : view.name === 'delete' ? 'Questa operazione rimuove i dati salvati su questa installazione.' : 'Dati personali e accesso al tuo Garmin.'}
+    subtitle={view.name === 'list' ? t('profile.listSubtitle') : view.name === 'delete' ? t('profile.deleteSubtitle') : t('profile.formSubtitle')}
     focusKey={`${view.name}:${view.id || 'new'}`} onClose={busy ? () => {} : onClose}>
     {view.name === 'list' && <>
       <div className="profile-list-toolbar">
-        <label className="profile-search"><Search size={17} aria-hidden="true" /><input type="search" aria-label="Cerca profili" placeholder="Cerca un profilo…" value={search} onChange={(event) => setSearch(event.target.value)} disabled={busy} /></label>
-        <button className="button primary" disabled={busy} onClick={() => open('form')}><Plus size={16} /><span>Nuovo profilo</span></button>
+        <label className="profile-search"><Search size={17} aria-hidden="true" /><input type="search" aria-label={t('profile.search')} placeholder={t('profile.searchPlaceholder')} value={search} onChange={(event) => setSearch(event.target.value)} disabled={busy} /></label>
+        <button className="button primary" disabled={busy} onClick={() => open('form')}><Plus size={16} /><span>{t('profile.newTitle')}</span></button>
       </div>
-      <ul className="profile-list" aria-label="Profili presenti in locale">
+      <ul className="profile-list" aria-label={t('profile.listLabel')}>
         {filtered.map((item) => <li key={item.id} className={`profile-row ${item.id === profileId ? 'is-current' : ''}`}>
           <button className="profile-row-select" disabled={busy} aria-pressed={item.id === profileId} onClick={() => select(item.id)}>
             <UserAvatar profile={item} className="profile-list-avatar" />
-            <span className="profile-row-copy"><strong>{profileName(item)}</strong><span>{PRIMARY_SPORT_LABELS[item.primarySport] || 'Profilo da completare'}<span className="profile-row-dot">·</span>{item.hasGarminKey ? 'Garmin configurato' : 'Garmin da collegare'}</span></span>
-            {item.id === profileId ? <span className="current-tag"><Check size={12} />Corrente</span> : <ChevronRight className="profile-select-arrow" size={16} />}
+            <span className="profile-row-copy"><strong>{profileName(item)}</strong><span>{t(PRIMARY_SPORT_LABELS[item.primarySport] || 'profile.incomplete')}<span className="profile-row-dot">·</span>{item.hasGarminKey ? t('connection.garminConfigured') : t('connection.linkGarmin')}</span></span>
+            {item.id === profileId ? <span className="current-tag"><Check size={12} />{t('profile.current')}</span> : <ChevronRight className="profile-select-arrow" size={16} />}
           </button>
-          <div className="profile-row-actions"><button className="icon-button" disabled={busy} aria-label={`Modifica ${profileName(item)}`} title="Modifica profilo" onClick={() => open('form', item.id)}><Pencil size={17} /></button><button className="icon-button delete-button" disabled={busy} aria-label={`Elimina ${profileName(item)}`} title="Elimina profilo" onClick={() => open('delete', item.id)}><Trash2 size={17} /></button></div>
+          <div className="profile-row-actions"><button className="icon-button" disabled={busy} aria-label={t('profile.editLabel', { name: profileName(item) })} title={t('profile.editTitle')} onClick={() => open('form', item.id)}><Pencil size={17} /></button><button className="icon-button delete-button" disabled={busy} aria-label={t('profile.deleteLabel', { name: profileName(item) })} title={t('profile.delete')} onClick={() => open('delete', item.id)}><Trash2 size={17} /></button></div>
         </li>)}
       </ul>
-      {!filtered.length && <div className="profile-list-empty"><UsersRound size={28} /><strong>{profiles.length ? 'Nessun profilo trovato' : 'Il tuo spazio comincia qui'}</strong><p>{profiles.length ? 'Prova con un altro nome o con lo sport praticato.' : 'Crea il primo profilo con il pulsante qui sopra.'}</p></div>}
-      <p className="profile-list-note">{profiles.length} {profiles.length === 1 ? 'profilo locale' : 'profili locali'} · Seleziona una riga per cambiare profilo.</p>
-      {busy && <p className="profile-progress" role="status"><LoaderCircle size={15} className="spin" />Cambio profilo…</p>}
+      {!filtered.length && <div className="profile-list-empty"><UsersRound size={28} /><strong>{profiles.length ? t('profile.noResults') : t('profile.emptyTitle')}</strong><p>{profiles.length ? t('profile.searchHint') : t('profile.emptyHint')}</p></div>}
+      <p className="profile-list-note">{t('profile.count', { count: profiles.length })} · {t('profile.selectHint')}</p>
+      {busy && <p className="profile-progress" role="status"><LoaderCircle size={15} className="spin" />{t('profile.switching')}</p>}
     </>}
-    {view.name === 'form' && <ProfileForm key={view.id || 'new'} profile={profile} onBack={back} onSave={async (id, values) => { const result = await onSave(id, values); setSearch(''); return result; }} onBusyChange={setBusy} />}
+    {view.name === 'form' && <ProfileForm key={view.id || 'new'} profile={profile} activeProfileId={profileId} onBack={back} onSave={async (id, values) => { const result = await onSave(id, values); setSearch(''); return result; }} onBusyChange={setBusy} />}
     {view.name === 'delete' && profile && <div className="profile-delete-confirm">
-      <div className="profile-delete-summary"><UserAvatar profile={profile} className="profile-list-avatar" /><div><strong>{profileName(profile)}</strong><span>{PRIMARY_SPORT_LABELS[profile.primarySport] || 'Profilo da completare'}</span></div></div>
-      <p>Verranno eliminati il profilo, la foto, la chiave Garmin e tutte le sessioni del suo piano locale. L’operazione non può essere annullata.</p>
-      <p>I dati presenti su Garmin restano disponibili nel tuo account.</p>
-      <div className="modal-actions"><button className="button secondary" disabled={busy} onClick={back}>Annulla</button><button className="button danger" disabled={busy} onClick={remove}>{busy && <LoaderCircle size={16} className="spin" />}{busy ? 'Eliminazione…' : 'Elimina profilo'}</button></div>
+      <div className="profile-delete-summary"><UserAvatar profile={profile} className="profile-list-avatar" /><div><strong>{profileName(profile)}</strong><span>{t(PRIMARY_SPORT_LABELS[profile.primarySport] || 'profile.incomplete')}</span></div></div>
+      <p>{t('profile.deleteWarning')}</p>
+      <p>{t('profile.garminPreserved')}</p>
+      <div className="modal-actions"><button className="button secondary" disabled={busy} onClick={back}>{t('common.cancel')}</button><button className="button danger" disabled={busy} onClick={remove}>{busy && <LoaderCircle size={16} className="spin" />}{busy ? t('common.deleting') : t('profile.delete')}</button></div>
     </div>}
-    {error && <p role="alert" className="form-error">{error}</p>}
+    {error && <p role="alert" className="form-error">{messageText(error)}</p>}
   </Modal>;
 }

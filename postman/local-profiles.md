@@ -6,8 +6,8 @@ stored Garmin key or access token.
 
 | Method and path | Input | Success | Errors and side effects |
 | --- | --- | --- | --- |
-| `GET /profiles` | None | `200 { profiles: [...] }`, in creation order | Metadata includes names, sport, avatar, theme and `hasGarminKey`. |
-| `POST /profiles` | Required `firstName`, `lastName`, `primarySport`; optional `avatar`, `apiKey`, `theme` | `201` profile metadata | Invalid fields: `400`; does not contact Garmin. |
+| `GET /profiles` | None | `200 { profiles: [...] }`, in creation order | Metadata includes names, sport, avatar, theme, language and `hasGarminKey`. |
+| `POST /profiles` | Required `firstName`, `lastName`, `primarySport`; optional `avatar`, `apiKey`, `theme`, `language` | `201` profile metadata | Invalid fields: `400`; does not contact Garmin. |
 | `PATCH /profiles/:id` | Same required fields as creation; optional fields preserve saved values when omitted | `200` updated metadata | Missing profile: `404 PROFILE_NOT_FOUND`; changing/removing a key invalidates only that profile's token cache. |
 | `PATCH /profiles/:id/theme` | `{ "theme": "sage-ivory" }` or another ID from `libs/themes.json` | `200` updated metadata | Invalid/missing theme: `400 INVALID_THEME`; missing profile: `404 PROFILE_NOT_FOUND`. Changes only theme and update time, including for incomplete legacy profiles. Credentials and token cache remain unchanged. |
 | `DELETE /profiles/:id` | None | `204`, empty body | Missing profile: `404 PROFILE_NOT_FOUND`. Atomically removes that profile and its local sessions, avatar and encrypted Garmin key; invalidates only its token cache. No Garmin request. |
@@ -18,6 +18,29 @@ selects the first remaining profile, or clears the selection if none remain.
 Deleting another profile preserves the current selection. UI deletion requires
 an explicit confirmation in the profile popup. Theme previews are temporary
 until settings are saved; cancel restores the persisted theme.
+
+## Profile language
+
+`language` accepts exactly `en` (English), `it` (Italian), `fr` (French), `es`
+(Spanish), or `de` (German). Creation defaults to `en`; migration `005` also
+assigns `en` to existing profiles. Omission on update preserves the saved value.
+Explicit `null`, empty strings, unsupported codes and non-string values return
+`400 INVALID_LANGUAGE` without partial changes. Language is returned in profile
+lists, create/update responses, and dashboard metadata. Changing language does
+not rotate credentials or invalidate Garmin's token cache.
+
+Example: `PATCH /profiles/:id` with
+`{"firstName":"Ada","lastName":"Rossi","primarySport":"running","language":"fr"}`.
+
+The browser immediately applies the selected profile's language. The profile
+form previews language changes for the active or a new profile; cancel restores
+the active profile's saved language. Editing an inactive profile does not change
+the current interface language. The browser caches the active profile's language
+for startup; the server's saved profile remains authoritative. With no selected
+profile the interface uses English. User-entered names, session titles and notes
+are preserved verbatim. Localized API errors use an optional `error.messageKey`
+alongside the existing error code and message; unknown errors get a safe local
+fallback in the interface.
 
 ## Automatic Garmin access in the browser
 

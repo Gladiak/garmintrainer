@@ -8,8 +8,10 @@ Garmin Trainer combines a responsive React interface with an Express backend and
 
 - **Weekly training planner.** Create sessions with a sport, date, optional start time, duration, and notes. Mark sessions as completed, return them to planned, or remove them.
 - **Separate local profiles.** Search, select, edit and delete athletes with independent plans, Garmin credentials, profile photos, and saved themes on shared grayscale surfaces.
+- **Five interface languages.** English (default), Italian, French, Spanish, and German, saved per profile and switched instantly.
 - **Garmin authentication.** Save a personal API key for a profile and let the backend obtain, cache, and renew its temporary access token.
-- **Wellness dashboard preview.** Explore resting heart rate, HRV, Body Battery, stress, and sleep visualizations, including trend charts over 7, 14, or 30 days.
+- **Monthly training load.** Two Nivo calendar heatmaps show complete months side by side, with navigation that moves two months at a time. Hours come from completed sessions in the selected profile's local plan.
+- **Interactive dashboard preview.** Explore wellness charts, a sample weekly training plan and populated training-load calendars. Try creating, completing and deleting demo sessions in memory.
 - **Local persistence.** Keep profiles and sessions in SQLite, with no separate database service to install.
 - **Responsive interface.** Use the dashboard and training planner on desktop or mobile.
 
@@ -17,7 +19,7 @@ Garmin Trainer combines a responsive React interface with an Express backend and
 
 The local training planner, profile management, and Garmin authentication are implemented. **Importing real Garmin measurements is not implemented yet.** Wellness cards and charts remain empty unless you enable the clearly marked preview mode; preview values are never saved to the database.
 
-Training plans belong to this application and are not sent to a Garmin device. Session completion is recorded manually and is not matched against Garmin activities. The application interface is currently in Italian.
+Training plans belong to this application and are not sent to a Garmin device. Session completion is recorded manually and is not matched against Garmin activities. The interface defaults to English and follows the selected profile's language.
 
 The next development step is per-profile Garmin data import and history, starting with daily summaries, sleep, HRV, Body Battery, and stress.
 
@@ -84,13 +86,80 @@ Vite forwards `/api` requests to Express. SQLite and its schema are created auto
 4. Leave the Garmin key empty to use the local planner, or enter your personal API key. Save the profile.
 5. If you added a key, Garmin access is prepared automatically in the background for the current profile. The same check runs on startup, profile selection and dashboard refresh; no activation button is needed.
 
-You can now add sessions to the weekly plan or enable the dashboard preview to explore the charts. Activating Garmin access prepares authentication only; it does not import measurements.
+You can now add sessions to the weekly plan or enable the dashboard preview to explore the complete interface. Activating Garmin access prepares authentication only; it does not import measurements.
+
+### Explore the preview
+
+**Explore a preview** switches wellness cards/charts, **Your plan**, and **Monthly
+training load** to sample data. The plan includes several months of completed
+training, rest days and upcoming planned sessions, so the calendar displays all
+load intensities and the weekly navigator has workouts to explore.
+
+Create sessions, mark them completed or planned, and delete them to test the
+interface. The calendar and its totals update immediately. Preview actions are
+handled entirely in browser memory and never call the session write endpoints.
+They are available even without a local profile or while the backend is
+unavailable. Demo titles and notes follow the interface language; custom text
+stays as entered. Both training panels are clearly marked **PREVIEW**.
+
+**Close preview** restores the selected profile's real plan and discards the
+temporary changes. Reopening it starts with fresh sample data. Switching
+profiles exits preview and also closes any session form or deletion dialog.
 
 Additional profiles keep their own plans and preferences. When editing a profile, leaving the key field empty preserves the saved credential. Enter a new key to replace it, or use the removal checkbox to delete it.
 
 If Garmin rejects the key or cannot be reached, a separate dashboard message offers a retry while the saved profile and local planner remain available. Inactive profiles connect when selected. The profile popup keeps its title and close button fixed above a divider; only its content scrolls.
 
 The profile popup has a search field and a **Nuovo profilo** button at the top. Selecting a row changes the active profile and marks it **Corrente**. Pencil and trash actions edit or delete the corresponding profile. Creation and editing share the same form and dialog state. Editing an inactive profile preserves the current selection; creating one selects it. Deletion requires confirmation and removes only that profile's local plan, photo and credential. If the current profile is deleted, the first remaining profile is selected, or the dashboard returns to its empty state.
+
+### Review monthly training load
+
+The **Training load** calendar sits beside the local training plan, replacing
+the Garmin connection and local-storage information cards. The wellness trend
+and sleep charts remain in their original positions. The previous and current
+months open side by side by default. Each arrow moves the pair backward or
+forward by two months; **Current** returns to the initial pair. Navigation works
+across year boundaries. Every day of both months is visible immediately, including rest days and future dates,
+with no scrolling inside the calendar. The Nivo TimeRange component from
+`@nivo/calendar` supplies the daily cells, with localized month/day labels and
+tooltips. The summary and daily details cover both displayed months.
+
+The calendar sums the durations of sessions manually marked **completed** in the
+local plan. Planned and future sessions do not contribute. The colour scale is
+fixed across periods: no training, less than 1 hour, 1–2 hours, 2–3 hours, and 3
+hours or more. More training hours means a darker shade of the profile's theme.
+The summary shows total time, active days, and completed session count; **View
+daily details** provides an accessible table. Completing, reopening, adding, or
+deleting a session updates the calendar immediately. In preview, the calendar
+uses the same temporary demo sessions shown in the weekly plan.
+
+### Choose a language
+
+Open **Profiles**, create or edit a profile, and choose **Language**: English,
+Italian, French, Spanish, or German. New and existing profiles default to English.
+For the active or a new profile, changing the selector previews the language
+immediately across the dashboard and open dialog. **Save profile** persists it;
+**Cancel**, closing the dialog, or Escape restores the active profile's saved
+language. Editing an inactive profile leaves the interface in the current
+profile's language until that profile is selected.
+
+Dates, weekdays, chart labels, tooltips, accessible labels, notifications and
+validation errors follow the language. Names, workout titles and notes remain
+as entered. With no selected profile, the app uses English. The selected profile's
+language is cached in the browser for startup and confirmed by the saved profile.
+
+Translation catalogs live in [`langs/`](langs/): `en.json`, `it.json`, `fr.json`,
+`es.json`, and `de.json`. The shared `languages.json` lists supported codes and
+regional locales. Add text under the same key in every catalog; `{name}` style
+placeholders are interpolated as plain text, and `.one`/`.other` keys support
+plural counts. Missing translations fall back to English.
+
+[`frontend/src/lib/i18n.js`](frontend/src/lib/i18n.js) centralizes translation,
+instant switching, temporary previews, and document language/title updates.
+React components subscribe through `useTranslation()` and render `t('key')`;
+non-React helpers can use `t`, `getLanguage`, and `setLanguage` from the same
+utility. Permanent changes are saved through the profile API using `language`.
+Migration `005-profile-language.sql` preserves existing profiles and plans.
 
 ### Choose a theme
 
@@ -157,7 +226,7 @@ Run the automated tests:
 npm test
 ```
 
-The suite covers local persistence, profile separation, credential encryption and migration, avatar validation, and Garmin token handling against local HTTP fixtures. It uses test credentials, does not read `.env`, and does not contact a real Garmin account. Postman is not required for this command.
+The suite covers local persistence, profile separation, credential encryption and migration, avatar validation, language defaults and migration, live switching and translation catalog consistency, and Garmin token handling against local HTTP fixtures. It uses test credentials, does not read `.env`, and does not contact a real Garmin account. Postman is not required for this command.
 
 For an additional simulation check, with the Postman CLI available, start the bundled simulation:
 
@@ -189,6 +258,7 @@ This checks token issuance and renewal after a rejected token using the local si
 ```text
 app.js                      Express application and startup
 frontend/                   React dashboard, components, styles, and assets
+langs/                      English, Italian, French, Spanish and German catalogs
 libs/                       Database, configuration, credentials, and Garmin client
 libs/themes.json            Shared theme definitions
 routes/                     Local profile, dashboard, session, and authentication routes

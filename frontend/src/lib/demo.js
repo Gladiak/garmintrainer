@@ -18,7 +18,7 @@ export function demoData(endDate) {
 }
 
 export const METRICS = {
-  restingHeartRate: { label: 'FC a riposo', unit: 'bpm', description: 'La frequenza cardiaca a riposo, giorno dopo giorno.' },
-  hrv: { label: 'HRV notturna', unit: 'ms', description: 'L’andamento della variabilità cardiaca notturna.' },
-  bodyBattery: { label: 'Body Battery', unit: '/100', description: 'Una vista dei livelli di energia registrati.' },
+  restingHeartRate: { label: 'metrics.restingHeartRate', unit: 'bpm' },
+  hrv: { label: 'metrics.hrv', unit: 'ms' },
+  bodyBattery: { label: 'metrics.bodyBattery', unit: '/100' },
 };

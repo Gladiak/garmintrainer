@@ -1,3 +1,5 @@
+import { getLanguage, languageLocale, t } from './i18n.js';
+
 export function today() {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -19,11 +21,11 @@ export function weekDays(day) {
 }
 
 export function formatDay(day, options = {}) {
-  return new Intl.DateTimeFormat('it-IT', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`));
+  return new Intl.DateTimeFormat(languageLocale(getLanguage()), { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`));
 }
 
 export function durationLabel(minutes) {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
-  return hours ? `${hours} h${remainder ? ` ${remainder} min` : ''}` : `${minutes} min`;
+  return hours ? `${t('common.hours', { count: hours })}${remainder ? ` ${t('common.minutes', { count: remainder })}` : ''}` : t('common.minutes', { count: minutes });
 }

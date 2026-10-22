@@ -1,3 +1,5 @@
+import { translationError } from './i18n.js';
+
 export async function request(path, { signal, method = 'GET', body, profileId } = {}) {
   let response;
   try {
@@ -11,16 +13,16 @@ export async function request(path, { signal, method = 'GET', body, profileId } 
     });
   } catch (error) {
     if (error.name === 'AbortError') throw error;
-    throw new Error('Il server non è raggiungibile. Controlla che Express sia avviato.');
+    throw translationError('errors.network');
   }
   if (response.status === 204) return null;
   let data;
   try { data = await response.json(); } catch {
-    throw new Error('Il server ha restituito una risposta inattesa.');
+    throw translationError('errors.unexpectedResponse');
   }
   if (!response.ok) {
-    const error = new Error(data.error?.message || 'Non è stato possibile completare la richiesta.');
-    error.code = data.error?.code;
+    const error = translationError(data?.error?.messageKey || (data?.error?.code ? `errors.${data.error.code}` : 'errors.requestFailed'));
+    error.code = data?.error?.code;
     error.status = response.status;
     throw error;
   }

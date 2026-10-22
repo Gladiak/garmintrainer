@@ -46,7 +46,7 @@ function createApp({ garminManager, databaseProvider = getDatabase } = {}) {
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     if (error instanceof InputError) {
-      return res.status(error.statusCode).json({ error: { code: error.code, message: error.message } });
+      return res.status(error.statusCode).json({ error: { code: error.code, message: error.message, ...(error.messageKey ? { messageKey: error.messageKey } : {}) } });
     }
     if (error instanceof GarminApiError) {
       return res.status(error.statusCode).json({

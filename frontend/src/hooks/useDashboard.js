@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { request } from '../lib/api';
 import { prepareProfileAccess } from '../lib/garmin-access';
+import { translationError } from '../lib/i18n';
 
 const SELECTION_KEY = 'garmintrainer.profileId';
 function rememberProfile(id) {
@@ -52,7 +53,7 @@ export function useDashboard() {
         },
       });
     } catch (failure) {
-      if (!current.signal.aborted && version === generation.current) setError(failure.message);
+      if (!current.signal.aborted && version === generation.current) setError(failure);
     } finally {
       if (!current.signal.aborted && version === generation.current) setLoading(false);
     }
@@ -84,6 +85,7 @@ export function useDashboard() {
   async function deleteProfile(id) {
     await request(`/profiles/${id}`, { method: 'DELETE' });
     try { localStorage.removeItem(`garmintrainer.profileTheme:${id}`); } catch { /* Optional browser cache. */ }
+    try { localStorage.removeItem(`garmintrainer.profileLanguage:${id}`); } catch { /* Optional browser cache. */ }
     const remaining = profiles.filter((item) => item.id !== id);
     setProfiles(remaining);
     await selectProfile(selected.current === id ? remaining[0]?.id || null : selected.current);
@@ -91,7 +93,7 @@ export function useDashboard() {
   async function mutate(path, options, apply) {
     const id = selected.current;
     const version = generation.current;
-    if (!id) throw new Error('Seleziona un profilo locale.');
+    if (!id) throw translationError('errors.PROFILE_REQUIRED');
     const result = await request(path, { ...options, profileId: id });
     if (selected.current === id && generation.current === version) {
       setData((previous) => previous ? apply(previous, result) : previous);

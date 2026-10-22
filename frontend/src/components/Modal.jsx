@@ -1,7 +1,9 @@
+import { useTranslation } from '../hooks/useTranslation';
 import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 
 export default function Modal({ title, subtitle, children, onClose, className = '', focusKey }) {
+  const { t } = useTranslation();
   const dialog = useRef(null);
   const titleId = useId();
   const subtitleId = useId();
@@ -23,7 +25,7 @@ export default function Modal({ title, subtitle, children, onClose, className = 
       onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="modal-heading">
         <h2 id={titleId}>{title}</h2>
-        <button className="icon-button" aria-label="Chiudi finestra" onClick={onClose}><X size={20} /></button>
+        <button className="icon-button" aria-label={t('common.closeWindow')} onClick={onClose}><X size={20} /></button>
       </div>
       <div className="modal-body">{subtitle && <p className="modal-subtitle" id={subtitleId}>{subtitle}</p>}{children}</div>
     </dialog>

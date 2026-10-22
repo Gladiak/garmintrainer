@@ -9,6 +9,6 @@ export async function prepareProfileAccess({ profileId, status, signal, isCurren
     const next = await request('/garmin/auth/ensure', { method: 'POST', profileId, signal });
     if (current()) onChange({ connecting: false, error: '', status: next });
   } catch (failure) {
-    if (current()) onChange({ connecting: false, error: failure.name === 'AbortError' ? '' : failure.message });
+    if (current()) onChange({ connecting: false, error: failure.name === 'AbortError' ? '' : failure.translationKey ? failure : failure.message });
   }
 }

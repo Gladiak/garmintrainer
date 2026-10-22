@@ -1,0 +1,7 @@
+[
+  { "code": "en", "locale": "en-GB", "nativeName": "English" },
+  { "code": "it", "locale": "it-IT", "nativeName": "Italiano" },
+  { "code": "fr", "locale": "fr-FR", "nativeName": "Français" },
+  { "code": "es", "locale": "es-ES", "nativeName": "Español" },
+  { "code": "de", "locale": "de-DE", "nativeName": "Deutsch" }
+]
