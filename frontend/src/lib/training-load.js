@@ -1,19 +1,4 @@
-import { shiftDay, weekDays } from './dates.js';
-
-// Always render a complete calendar month, including days that have no sessions.
-export function trainingMonth(day, offset = 0) {
-  const [year, month] = day.split('-').map(Number);
-  const from = new Date(Date.UTC(year, month - 1 + offset, 1)).toISOString().slice(0, 10);
-  const next = new Date(Date.UTC(year, month + offset, 1)).toISOString().slice(0, 10);
-  const to = shiftDay(next, -1);
-  return { from, to, gridStart: weekDays(from)[0], gridEnd: shiftDay(weekDays(to)[6], 1) };
-}
-
-// Each page contains two consecutive months; the default ends in the current month.
-export function trainingMonthPair(day, page = 0) {
-  const months = [trainingMonth(day, page * 2 - 1), trainingMonth(day, page * 2)];
-  return { from: months[0].from, to: months[1].to, months };
-}
+import { shiftDay } from './dates.js';
 
 export function trainingLoad(sessions, range, throughDay = range.to) {
   const totals = new Map();

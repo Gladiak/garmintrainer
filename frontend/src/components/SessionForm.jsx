@@ -26,7 +26,7 @@ export default function SessionForm({ date, onClose, onSave }) {
           <label>{t('session.activity')}<select name="sport" defaultValue="running">{Object.entries(SPORT_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label>
           <label>{t('session.duration')}<input name="durationMinutes" type="number" min="1" max="1440" defaultValue="45" required /></label>
           <label>{t('session.date')}<input name="date" type="date" defaultValue={date} required /></label>
-          <label>{t('session.time')}<input name="time" type="time" /></label>
+          <label>{t('session.time')}<input name="time" type="time" defaultValue="08:00" /></label>
         </div>
         <label>{t('session.notes')}<textarea name="notes" rows="3" maxLength={2000} placeholder={t('session.notesPlaceholder')} /></label>
         {error && <p role="alert" className="form-error">{messageText(error)}</p>}

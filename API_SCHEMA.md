@@ -1,11 +1,13 @@
 # Garmin Connect Personal API — schema e studio preliminare
 
-Verifica documentale: **22 ottobre 2026**. Stato: **dashboard reale implementata; ulteriori estensioni solo progettate**.
+Verifica documentale: **23 ottobre 2026**. Stato: **dashboard reale implementata; ulteriori estensioni solo progettate**.
 
 Questo documento censisce tutte le operazioni nello Swagger pubblico indicato,
 collega i dati ai componenti attuali e propone caricamento, refresh e conservazione
 privata. Le scelte applicative definite qui non sono garanzie fornite da Garmin.
-Non sono state usate chiavi personali né scaricati dati reali degli utenti.
+Lo studio iniziale e i test automatici usano dati sintetici. La verifica diagnostica
+VO₂ max documentata sotto è stata eseguita in sola lettura sull’installazione locale,
+senza esporre credenziali o dati personali negli output.
 
 Perimetro chiarito dall'autore: **applicazione a uso personale, con più account
 per tester collegati a dispositivi diversi**. Non si sta progettando un servizio
@@ -15,45 +17,154 @@ le prove reali servono a verificare gli adapter, non a rinviare queste scelte.
 
 ## Stato dell’implementazione dashboard
 
-Implementato il primo perimetro richiesto: lettura di dati reali, refresh manuale,
-cache cifrata nel DB e navigazione con richieste sugli intervalli necessari.
-La dashboard non contiene più generatori o modalità di anteprima dei dati.
-Il planner locale resta separato dalle attività Garmin della heatmap.
+Implementati dati reali, cache cifrata, refresh su richiesta e moduli dinamici,
+suddivisi in tre pagine indipendenti:
 
-- `controllers/garmin-*.js`: un controller dichiarativo per ciascuna delle 26
-  operazioni GET del catalogo, più un controller dedicato al POST token.
-  Solo gli endpoint necessari alla dashboard vengono chiamati automaticamente.
-- `helpers/garmin-endpoint.js`: validazione dei parametri, percorsi e forma radice,
-  limiti di intervallo e un retry limitato per timeout/5xx. Il client Axios condiviso
-  mantiene token in RAM, riusa il Bearer, gestisce 401/429, annullamento e ID lossless.
-- `GET /api/dashboard`: lettura locale autenticata, con date, disponibilità e
-  acquisizioni per risorsa. Il bootstrap legge prima il calendario server e gli
-  estremi futuri vengono limitati a oggi nel fuso Garmin, evitando richieste per
-  giorni futuri quando browser e profilo sono su date diverse. `POST /api/garmin/sync`: import del range richiesto,
-  `resources` opzionale e `force` per ignorare il TTL; protezione CSRF già esistente.
-- `helpers/dashboard-measurements.js`: intervalli, cache, chiamate, normalizzazione,
-  controllo identità e salvataggio; nessun endpoint generico che accetti URL arbitrari.
-- Migrazione `002-garmin-measurements.sql`: collegamento, misure per risorsa/giorno,
-  stato di sync e lease DB per profilo. I campi sanitari, le date e gli ID provider
-  sono cifrati AES-256-GCM con chiavi HKDF distinte per profilo/scopo; indici HMAC.
-  Le risorse sono in righe distinte: non duplicano lo stesso payload giornaliero.
-- La sync è asincrona per l’interfaccia tramite fetch/Axios, ma la richiesta HTTP
-  resta aperta fino al completamento: **nessun worker o job persistente** in questa
-  prima versione, per mantenere il flusso lineare. Il lease DB scade dopo 120 secondi;
-  le richieste hanno un segnale di annullamento a 90 secondi. Le chiamate Axios sono
-  limitate a 2 contemporanee per processo e 15 secondi per lettura. Più processi
-  condividono il lock per profilo, non ancora un limite globale di traffico.
-- Sono applicati gli orizzonti di navigazione di 90 giorni wellness e 365 giorni
-  attività. La pulizia automatica dello storico, la retention dei backup, un
-  keyring per rotazione master e le azioni dedicate di cancellazione import restano
-  fuori dal perimetro corrente; non vanno considerate già operative.
+- **Panoramica:** default oggi, solo un giorno D. Card di FC di riferimento,
+  sonno/punteggio, Body Battery, stress, HRV/stato e passi; box recupero e allenamento,
+  curve giornaliere FC/Body Battery e attività. Calendario e frecce spostano il giorno.
+  Il server rifiuta un intervallo di più giorni con `view=overview`.
+- **Benessere:** default 14 giorni, con 1/7/14/30 giorni e una propria data di riferimento.
+  FC di riferimento, HRV/stato/baseline personale/media settimanale, sonno/punteggio,
+  respirazione, SpO₂, stress e Body Battery. Le card restano riferite al solo giorno D;
+  i grafici mostrano il periodo scelto. Respirazione/SpO₂ nel singolo giorno usano
+  media ed estremi del riepilogo, senza inventare una serie oraria.
+- **Il mio piano:** solo planner a tutta pagina, con l’intera settimana visibile,
+  aggiunta per giorno, completamento e cancellazione. Navigazione settimanale locale,
+  senza filtro giornaliero globale, refresh Garmin o richieste remote.
+- **Passaggio di mezzanotte:** l’orologio UI segue il fuso Garmin, controlla il
+  giorno ai confini del minuto e al ritorno sulla scheda (focus/visibilità/ripristino).
+  Non usa un timer fisso di 24 ore, quindi gestisce anche giornate di 23/25 ore.
+  Le viste che seguono oggi avanzano e caricano il nuovo intervallo; le date storiche
+  esplicite restano ferme. Durante il passaggio non si etichettano con la nuova data
+  le misure del giorno precedente. Anche la settimana corrente del planner avanza.
+- **Dati non ancora sincronizzati:** risposte 204, insiemi vuoti, letture nulle e
+  sentinelle -1 sono assenza di dati, senza banner di errore. Lo stato separa freschezza
+  della richiesta (`state`) e presenza delle misure (`dataState`, `dataByDay`:
+  `waiting|no_data|available|cached`). I tentativi riusciti ma vuoti hanno la stessa
+  scadenza di cache delle misure; `force` li riscarica sempre. La migrazione `005`
+  memorizza l’esito neutro in `garmin_sync_state.outcome`, separato da `error_code`.
+  Se manca ancora l’identità, si conserva solo l’esito `pending_identity`, senza
+  salvare misure non verificate o assegnare un titolare artificiale. Una risposta
+  vuota successiva conserva gli eventuali dati precedenti, segnalati come tali,
+  senza trasformarli in zero o in un errore. Autenticazione, rete, payload malformati,
+  identità discordanti e limiti API restano errori effettivi.
+- La testata compatta riunisce titolo, refresh a sola icona, periodo (solo in
+  Benessere, dopo refresh e Oggi) e navigazione temporale. Una sola data
+  leggibile è anche il selettore nativo del calendario: giorno singolo in Panoramica,
+  intervallo abbreviato in Benessere, con selezione del giorno finale e frecce per
+  l’intero periodo. Il pulsante Oggi è sempre visibile tra refresh e selettore periodo/data. La barra superiore
+  non ripete la data corrente. Il Piano riunisce navigazione settimanale, totali e
+  nuova sessione in un’unica barra, senza selettore giornaliero. I controlli vanno a
+  capo su schermi stretti. Le risorse restano limitate ai moduli della sezione aperta.
+- `shared/dashboard-modules.json` definisce i tipi e le dipendenze;
+  `shared/dashboard-sections.json` definisce la selezione iniziale. Il layout v2 è
+  `{version: 2, sections: {overview: [...], wellness: [...]}}`, con massimo 12 moduli
+  per sezione, aggiunta/rimozione/riordino e istanze duplicate. Il piano è fisso.
+  I layout v1 vengono aggiornati senza modificare i dati: il planner diventa una
+  pagina dedicata, i pannelli HRV/sonno/stress passano al Benessere predefinito,
+  la Panoramica riceve i box di allenamento. La precedente card `training-summary`
+  viene accorpata in `activities` anche nei layout v2 già salvati: se esiste una
+  card attività se ne conservano ID e posizione, altrimenti il riepilogo viene
+  convertito nella card unificata. Il selettore moduli propone solo `activities`. I vecchi client senza `view` mantengono
+  la compatibilità dell’intervallo; la UI nuova specifica sempre la sezione.
+- **Training Status nativo non disponibile nel catalogo Personal:** nessun endpoint
+  privato o classificazione sostitutiva. Il box **Preparazione fisica e recupero**
+  mostra punteggio/durata del sonno e media su 7 notti, HRV notturna con stato,
+  baseline e media settimanale Garmin, Body Battery, stress e FC di riferimento
+  confrontata con la media dei 7 giorni precedenti. Recupera 7 notti di sonno,
+  8 giorni di wellness e 28 giorni di attività rispetto al giorno selezionato.
+  `trainingContext` contiene `daily` (8 giorni), `sessions` (28 giorni) e
+  `completeByDay` per distinguere giorni senza attività e giorni non acquisiti.
+  Le misure giornaliere e la lista attività principale restano nell’intervallo richiesto.
+  Il carico è la somma degli `activityTrainingLoad` disponibili nei 7 giorni inclusivi,
+  con durata, numero attività e copertura; la variazione rispetto ai 7 precedenti
+  compare solo con entrambe le settimane complete e tutti i carichi disponibili.
+  Non è il carico acuto Garmin. Il VO₂ max è l’ultimo valore da attività in 28 giorni,
+  con data e sport; l’eventuale variazione usa il valore precedente di un giorno
+  diverso nello stesso tipo di attività. Dati mancanti non diventano zero o riposo.
+  La card **Attività registrate** riunisce riepilogo e lista: numero, durata e giorni
+  attivi compaiono nel riepilogo; Training Effect aerobico/anaerobico e VO₂ max
+  compaiono nel dettaglio della rispettiva attività, se presenti. Non esiste un
+  blocco ripetuto per l’ultima attività del giorno. I totali di distanza/energia
+  sono mostrati solo con più attività; con una sola restano nella riga di dettaglio.
+  Tutti i valori numerici visualizzati usano al massimo due decimali localizzati;
+  i valori originali restano invariati per calcoli, grafici e conservazione. Non è Training Readiness.
+  Le fonti sono `hrvSummaries.status/baseline/weeklyAvg` e la ricerca attività
+  `activityTrainingLoad`, `aerobicTrainingEffect`, `anaerobicTrainingEffect`, `vO2MaxValue`:
+  non occorrono chiamate al dettaglio di ogni attività.
+- I nuovi campi fisiologici provengono dal riepilogo V2 `respiration`, `pulseOx`,
+  `movement.steps.value` e dal sonno `sleepScores.overall.value`. Valori assenti restano
+  `null`, senza diagnosi, soglie di salute inventate o ripieghi su giorni diversi.
+- **Modalità scura:** toggle nelle impostazioni tema, con anteprima, annullamento
+  e salvataggio per profilo tramite `PATCH /api/profile/theme {theme, darkMode}`.
+  La migrazione `004` aggiunge `profiles.dark_mode` (default false). Superfici/testi
+  cambiano contrasto; colori originali del tema, accenti e serie dati restano invariati.
+- `GET /api/dashboard` legge il DB autenticato e restituisce layout, range risolto,
+  dati e stato per risorsa/giorno. `view=overview|wellness|plan` seleziona la pagina;
+  `period` opzionale risolve il primo intervallo nel fuso Garmin. `PUT /api/dashboard/layout` salva il layout;
+  `POST /api/garmin/sync` aggiorna le dipendenze, con `view`, `resources`, `force` e
+  `moduleId` opzionali. Le mutazioni richiedono la protezione CSRF esistente.
+- Il coordinatore UI applica i risultati man mano che ogni risorsa termina. Fonti
+  condivise vengono richieste una volta; riordino e moduli assenti non generano
+  chiamate superflue. Una card aggiornata singolarmente forza solo il giorno D,
+  anche se un grafico della stessa fonte mostra un intervallo più lungo.
+- FC e Body Battery: curve del giorno tramite i rispettivi endpoint di dettaglio;
+  sui periodi più lunghi, estremi giornalieri V2 con Nivo BoxPlot personalizzato,
+  senza mediana o quartili artificiali. HRV giornaliera usa le letture notturne;
+  la notte conserva anche la parte del giorno precedente. Sonno usa il range comune.
+- **Stress: scelta confermata dall'autore, usare gli aggregati.** Nel giorno mostra
+  media, massimo e durate dei livelli disponibili; su più giorni mostra le medie
+  giornaliere. Non è una curva di letture orarie e non richiede una fonte non documentata.
+- Le attività seguono lo stesso range e conservano tipo, orario, durata, distanza,
+  FC media, calorie e dislivello disponibili nella ricerca. Tooltip ampio nel grafico
+  e lista dal più recente, con colonne Data/Tipo/Dettaglio sempre visibili. Non si richiedono
+  dettagli di ogni attività, tracce GPS o nomi contenenti eventuali località.
+  Tempo totale, giorni attivi e numero attività sono affiancati su una riga.
+  I grafici riempiono lo spazio libero delle card tramite layout flessibile; la
+  heatmap usa celle rettangolari responsive, senza il vincolo di celle quadrate.
+- Le migrazioni `002` e `003` conservano misure e layout cifrati AES-256-GCM,
+  derivazione HKDF per profilo/scopo e indici HMAC. Errori/ultimo tentativo sono
+  isolati per risorsa, giorno e revisione credenziale, senza date in chiaro nel DB.
+  Il cooldown 429 vale per l'intero collegamento. Cache precedente senza nuovi campi
+  viene riconosciuta tramite versione e acquisita solo per i giorni necessari.
+- Restano i 26 controller GET del catalogo e il controller POST token, con client
+  Axios, ID lossless, token RAM, rinnovo 401, timeout/retry limitati e annullamento.
+  La UI coordina richieste locali per fonte, il server le serializza per profilo;
+  nessun worker persistente. Lease 120 secondi, annullamento sync 90 secondi,
+  letture remote 15 secondi, massimo 2 chiamate contemporanee per processo.
+- Il calendario UI copre 90 giorni Garmin. Il planner locale ha una navigazione
+  settimanale esplicita, può contenere futuro e resta separato dai totali importati.
+  Retenzione automatica, rotazione master e cancellazione dedicata degli import
+  non sono implementate da questa revisione.
 
-I dettagli progettuali successivi restano il riferimento per eventuali estensioni,
-in particolare job persistenti e manutenzione dello storico. Le fonti Garmin
-indicano HRV in millisecondi e la metrica notturna: il mapping `lastNightAvg` →
-`hrv` in ms è adottato con questo riscontro documentale, senza attribuire una
-precisione diagnostica ai valori. [HRV Status, Garmin](https://www.garmin.com/en-GB/garmin-technology/health-science/hrv-status/).
-Le verifiche automatiche usano solo un provider HTTP sintetico, senza chiavi reali.
+Le verifiche automatiche usano un provider HTTP sintetico e MariaDB reale,
+senza chiavi Garmin personali. La compatibilità dei payload con un account reale
+rimane da verificare. Le sezioni storiche successive documentano lo studio iniziale;
+questa sezione prevale sulle revisioni temporali storiche sotto. La verifica visiva
+  di questa revisione resta da effettuare perché il controllo browser è disabilitato.
+
+### Verifica del VO₂ max del profilo — 23 ottobre 2026
+
+Il VO₂ max mostrato nel riepilogo Prestazioni di Connect è la stima del profilo;
+non coincide necessariamente con un valore associato alle attività del giorno.
+L’implementazione corrente usa solo `SummarizedActivityDTO.vO2MaxValue`, opzionale,
+e lo mostra nei dettagli dell’attività quando presente. Il catalogo Personal
+censito non include un endpoint dedicato al VO₂ max del profilo; `FitnessAgeDTO`
+non espone questo valore e l’età fitness non deve essere convertita in VO₂ max.
+
+Una verifica diagnostica in sola lettura sull’installazione locale ha rilevato
+che le 41 attività in cache non contengono un VO₂ max normalizzato. Una ricerca
+remota di una corsa e il dettaglio della stessa attività non hanno restituito
+alcun campo VO₂. Anche una ricerca con `requiredField=vO2MaxValue` ha restituito
+un’attività senza serializzare il campo: il filtro non consente di ricostruirne
+il valore. Non sono state stampate credenziali, identità o misure personali.
+
+Questa verifica integra i test sintetici, che verificano la mappatura quando il
+campo documentato è presente, ma non garantiscono che Garmin lo restituisca per
+ogni account. Riprodurre l’indicatore del profilo di Connect richiede una fonte
+dedicata disponibile via API; non si attribuisce a un’attività la stima di un’altra
+data o disciplina e non si calcola un valore sostitutivo.
 
 ## Indice
 
@@ -74,9 +185,9 @@ Le verifiche automatiche usano solo un provider HTTP sintetico, senza chiavi rea
 
 ## Revisione proposta: tempo condiviso e moduli dinamici
 
-Analisi del 22 ottobre 2026, successiva alla prima implementazione. **Solo proposta:
-nessuna modifica a interfaccia, sincronizzazione o schema DB applicata in questa
-revisione.** Questa sezione sostituisce, per la prossima evoluzione, le politiche
+Revisione del 22 ottobre 2026, implementata dopo il confronto con l’autore.
+La decisione finale per lo stress è usare gli aggregati giornalieri.
+Questa sezione sostituisce le politiche
 di finestre separate e primo import fisso descritte nello studio iniziale sotto.
 Il catalogo Garmin resta valido. La fonte dei contratti è lo
 [Swagger ufficiale](https://developer.garmin.com/gc-developer-program/personal/swagger-docs/).
@@ -94,17 +205,15 @@ Il catalogo Garmin resta valido. La fonte dei contratti è lo
 | Primo import | 30 giorni wellness anche se il range è più corto | Anticipa dati senza derivare il fabbisogno dai moduli |
 | Stato UI | Caricamento ed errore prevalentemente globali | Navigare in un pannello coinvolge tutta la dashboard |
 
-Nelle impostazioni esiste la scheda «Personalizza dashboard», ma il suo pannello
-è ancora vuoto: nel codice attuale non c'è un gestore operativo di moduli o una
-persistenza del layout. Questa proposta ne prepara il contratto, senza darlo per
-già disponibile.
+Al momento dell’analisi il pannello «Personalizza dashboard» era vuoto; ora
+contiene il gestore dei moduli, con persistenza privata per profilo.
 
 ### Un solo contesto temporale, rappresentazioni diverse
 
 Adottare uno stato condiviso `{ mode, anchorDate, timeZone }`, con modalità
 `day`, `7d`, `14d`, `30d`. La data di riferimento D è il termine inclusivo del
-periodo: giorno = D; 7 giorni = D−6…D; analogamente per 14 e 30. Default proposto:
-14 giorni fino a oggi, conservando l'abitudine attuale. Aggiungere calendario,
+periodo: giorno = D; 7 giorni = D−6…D; analogamente per 14 e 30. **Default richiesto:
+giorno singolo, oggi nel fuso Garmin.** Aggiungere calendario,
 frecce e «Oggi» nella testata della dashboard, fuori da qualsiasi modulo.
 
 La selezione serve tutti i moduli, indipendentemente da ordine e dimensione.
@@ -116,17 +225,19 @@ server sono restituiti nella risposta e diventano quelli mostrati nella testata.
 «Uniforme» significa stesso riferimento e stessa finestra dichiarata; non una
 stessa aggregazione per ogni dato:
 
-- Le card compatte mostrano il valore attribuito a D e la relativa data. La
-  sparkline usa esattamente il periodo scelto; in modalità giorno si omette o
-  rappresenta una vera serie intragiornaliera disponibile, senza scaricare 12
-  giorni nascosti per riempirla.
+- Le card superiori mostrano soltanto i valori giornalieri attribuiti a D e la
+  relativa data, inizialmente oggi. Anche scegliendo un periodo di più giorni,
+  restano card del giorno D: non diventano medie del periodo o boxplot. Eliminare
+  da queste card le sparkline su più giorni e qualsiasi recupero implicito di
+  storico. I grafici appartengono ai moduli dedicati sottostanti.
 - Se a D non esiste il valore, la card mostra «— / Non disponibile per D».
   Un eventuale ultimo valore precedente è solo un'informazione secondaria con
   data esplicita, recuperata dalla cache; non sostituisce il valore principale
   e non avvia ricerche remote su giorni aggiuntivi.
-- I grafici di intervallo mostrano un punto/barra per ciascun giorno incluso,
-  con buchi nei giorni mancanti. Nessuna interpolazione o media usata come
-  sostituto di un valore assente.
+- I grafici di intervallo mostrano una rappresentazione per ciascun giorno incluso,
+  con buchi nei giorni mancanti. FC e Body Battery mostrano minimo e massimo
+  giornalieri, secondo la regola BoxPlot descritta sotto. Nessuna interpolazione
+  o media usata come sostituto di un valore assente.
 - Un numero di sintesi dell'intero periodo deve essere etichettato, per esempio
   «Media dei giorni disponibili, 10/14». Non introdurre una media generica in
   tutte le card: «ultimo valore», «media», «minimo» e «massimo» sono indicatori
@@ -143,11 +254,11 @@ si entra nelle rappresentazioni giornaliere indicate sotto.
 | Modulo | Un giorno D | Più giorni | Fonti e attenzione |
 | --- | --- | --- | --- |
 | FC di riferimento | Valore giornaliero a riposo/minimo sostitutivo, con etichetta attuale | Un valore di riferimento al giorno | V2 `heartRate.restingValue`; non confonderlo con la serie cardiaca |
-| Frequenza cardiaca | Curva delle letture del giorno e, se presenti, minimo/massimo | Trend giornaliero della FC di riferimento, chiarendo il cambio di indicatore; niente campioni intragiornalieri per ogni giorno | Dettaglio `/wellness-service/wellness/dailyHeartRate` per il giorno; V2 per intervalli. Il valore di riepilogo e il dettaglio hanno campi diversi e mantengono provenienze distinte |
-| Body Battery | Riepilogo del giorno e andamento temporale/limiti min–max dei segmenti restituiti | Un `latestValue` per giorno, esplicitamente «ultimo valore giornaliero»; min/max solo se disponibili da fonte corretta | V2 per card e trend; `/wellness-service/wellness/bodyBattery/reports/daily` solo per dettaglio del giorno |
+| Frequenza cardiaca | Curva delle letture del giorno e, se presenti, minimo/massimo | Minimo e massimo per ogni giorno, rappresentati con Nivo BoxPlot adattato ai soli estremi | Dettaglio `/wellness-service/wellness/dailyHeartRate` per il giorno; V2 `heartRate.minValue` e `maxValue` per intervalli. La FC di riferimento resta un indicatore separato |
+| Body Battery | Grafico delle letture/segmenti temporali del giorno, rispettando i descrittori e la risoluzione restituita | Minimo e massimo per ogni giorno, rappresentati con Nivo BoxPlot adattato ai soli estremi | Report `/wellness-service/wellness/bodyBattery/reports/daily` per dettaglio giorno; V2 `bodyBattery.minValue` e `maxValue` per intervalli; `latestValue` solo per la card giornaliera |
 | HRV | Media della notte attribuita a D e, nel modulo esteso, letture di quella notte | Un `lastNightAvg` per giorno; eventuale `weeklyAvg` in serie distinta | `/hrv-service/hrv/{calendarDate}` per dettaglio; `/hrv-service/hrv/daily/{fromDate}/{toDate}` per intervallo |
 | Sonno | Totale e composizione della notte attribuita a D | Barre e totale per ogni data nel medesimo intervallo globale | Riepiloghi sonno; niente limite visivo fisso a 7 giorni. Per il giorno non serve simulare una timeline delle fasi dai soli totali |
-| Stress | Media giornaliera, indicata come parziale se oggi | Medie giornaliere sul periodo | V2; non inventare una curva oraria partendo dalla media. Un futuro dettaglio richiederà una fonte adatta |
+| Stress | Media, massimo e grafico delle durate nei livelli disponibili | Medie giornaliere sul periodo | Aggregati V2; uso confermato dall’autore. Non rappresentare gli aggregati come letture con orario |
 | Attività Garmin | Elenco e totali delle attività iniziate a D | Heatmap e totali limitati al periodo globale | Ricerca attività paginata. Eventuali celle di calendario esterne al range sono solo contesto visivo e non entrano nelle richieste o nei totali |
 | Planner locale | Giorno D evidenziato nella sua settimana | Settimana contenente D, dichiarata nel titolo | Fonte locale, può contenere futuro. Non genera richieste Garmin né entra nei totali delle attività importate |
 
@@ -163,6 +274,43 @@ campioni puntuali esatti e non scegliere una cadenza inventata. La prima lettura
 usa il comportamento predefinito del provider; un valore `chunks` esplicito va
 adottato solo dopo aver verificato il payload e la resa desiderata. Per FC usare
 `heartRateValueDescriptors`, non indici di colonne fissati a mano.
+
+**Min/max su più giorni e Nivo BoxPlot.** Il requisito è visualizzare gli estremi
+reali di ciascun giorno, non una distribuzione stimata. La
+[pagina BoxPlot Nivo](https://nivo.rocks/boxplot/) è il riferimento visivo; il
+[contratto ufficiale del componente](https://github.com/plouc/nivo/blob/master/packages/boxplot/src/types.ts)
+comprende anche quantili, mediana e media. Due soli estremi non bastano a ricavare
+queste statistiche. Non passarli come due campioni per poi mostrare quartili
+automatici o un punto centrale presentato come mediana.
+
+Adottare una rappresentazione Nivo personalizzata con segmento verticale e
+terminali min/max per giorno, omettendo box interquartile e mediana quando non
+disponibili. Un layer/componente personalizzato e tooltip dedicato devono usare
+i soli estremi reali; eventuali calcoli interni del BoxPlot non diventano
+indicatori mostrati. Validare questa integrazione sulla versione Nivo adottata;
+non presumere un ingresso nativo per soli riepiloghi min/max. Non serve acquisire
+le serie complete di 30 giorni per aggiungere statistiche non richieste.
+
+FC e Body Battery rimangono grafici separati, con unità e scale proprie. Mostrare
+per ogni data i due estremi, unità e stato parziale di oggi. `min = max` produce
+un solo livello visibile; un estremo assente non diventa zero né viene completato
+con l'altro. Se la coppia è incompleta, non disegnare un intervallo completo;
+mostrare nel tooltip/testo l'eventuale estremo disponibile. Assi, navigazione e
+tabella accessibile mantengono tutti i giorni, inclusi quelli senza valori.
+
+I campi min/max sono già presenti nel V2 e richiedono l'estensione del mapping
+e del payload cifrato, non un nuovo endpoint remoto. Le righe di cache della
+prima implementazione non contengono ancora questi campi: versionare il formato
+normalizzato e riconoscere la copertura per campi, riscaricando solo la finestra
+necessaria quando una vecchia riga non può soddisfare il modulo min/max. Un campo
+non ancora importato è diverso da un campo verificato assente nella risposta.
+
+**Stress del giorno: usare gli aggregati.** L'autore ha confermato questa scelta
+al posto del dettaglio intragiornaliero. V2 fornisce `avgLevel`, `maxLevel` e durate
+nei livelli, in millisecondi. L'adapter conserva media/massimo e converte le durate
+in secondi; la UI mostra un grafico per categoria e lo etichetta come aggregato.
+Campi assenti rimangono assenti; nessuna distribuzione oraria ricostruita dalla media.
+Non occorre aggiungere endpoint privati o integrare la Health API commerciale.
 
 Le rappresentazioni proposte dipendono dai campi realmente disponibili: un
 riepilogo disponibile e una serie assente sono stati separati dello stesso
@@ -188,8 +336,8 @@ Contratto di configurazione proposto, da validare anche sul backend:
 {
   "version": 1,
   "modules": [
-    { "id": "battery-main", "type": "body-battery", "size": "wide", "options": { "view": "chart" } },
-    { "id": "hrv-summary", "type": "hrv", "size": "compact", "options": { "view": "summary" } }
+    { "id": "battery-main", "type": "body-battery" },
+    { "id": "hrv-summary", "type": "hrv-card" }
   ]
 }
 ```
@@ -203,7 +351,8 @@ Salvare solo configurazione, mai copie dei dati Garmin dentro il layout.
 
 Il catalogo dichiara: tipo, componente, modalità supportate, opzioni ammesse e
 risorse necessarie per modalità/rappresentazione. Esempio: Body Battery compatto
-richiede V2; Body Battery con grafico in modalità giorno aggiunge il report;
+richiede V2 per il solo giorno D; Body Battery con grafico in modalità giorno
+aggiunge il report, mentre il grafico min/max su più giorni richiede V2 nel range;
 HRV compatta richiede il riepilogo, mentre quella estesa richiede il dettaglio
 notturno. Il layout decide cosa mostrare; non conosce Axios, token o endpoint.
 
@@ -212,6 +361,9 @@ Tutti i moduli seguono il tempo globale nella prima versione. Un eventuale
 date locali e comando «Segui dashboard»; non lo introdurrei ora, perché
 riprodurrebbe subito l'incoerenza da risolvere. La granularità interna giorno/notte
 non costituisce un periodo indipendente nascosto.
+Le card superiori mantengono il proprio fabbisogno giornaliero su D, come parte
+dello stesso contesto, anche quando i grafici richiedono un intervallo più lungo.
+Il coordinatore include quel giorno nell'unione, senza duplicare richieste.
 
 ### Richieste derivate dai moduli presenti
 
@@ -255,11 +407,16 @@ perché il refresh è appena terminato.
 
 Esempi indicativi di budget, esclusi token/impostazioni, pagine attività e retry:
 
-- FC di riferimento + Body Battery + stress su 14 giorni: **1 GET V2**, non tre.
-- Aggiungendo HRV e sonno: **3 GET complessivi**, se non soddisfatti da cache valida.
+- Card giornaliere FC di riferimento + Body Battery + stress: **1 GET V2 per D**,
+  non tre e non 14 giorni impliciti.
+- Grafici min/max FC + Body Battery su 14 giorni: **1 GET V2 per il range**; la
+  stessa risposta soddisfa le card di D e le medie stress dello stesso intervallo.
+- Aggiungendo i trend HRV e sonno: **3 GET complessivi**, se non soddisfatti da cache valida.
 - Solo i tre grafici estesi giornalieri FC, Body Battery e HRV: **3 GET dettaglio**;
   eventuali altri moduli possono richiedere ulteriori riepiloghi. Non scaricare
   questi dettagli per tutti i 14/30 giorni quando si seleziona un intervallo.
+- Lo stress giornaliero usa gli aggregati della V2, condivisa con FC e Body Battery;
+  non comporta richieste aggiuntive quando la fonte è già necessaria.
 - Solo planner: **0 richieste Garmin**. Rimuovere HRV dal layout deve eliminare
   il suo import, anche se il tipo resta disponibile nel catalogo.
 
@@ -329,24 +486,30 @@ timestamp locali del report senza inventare conversioni.
 
 Ordine di implementazione consigliato:
 
-1. Contesto temporale comune, eliminazione di `slice(-12)`/`slice(-7)` e finestre
-   attività separate; card riferite a D, limiti e calendario coerenti.
+1. Contesto temporale comune con default oggi/giorno; eliminazione di
+   `slice(-12)`/`slice(-7)` e finestre attività separate; card soltanto giornaliere
+   riferite a D, limiti e calendario coerenti.
 2. Estrazione dei pannelli da `App.jsx`, catalogo moduli e layout versionato per
    profilo; fabbisogni derivati dal layout anche prima dell'editor completo.
 3. Coordinatore richieste/cache/stati per risorsa e finestra; bootstrap e refresh
    basati sui moduli, preservando controller e helper già presenti.
-4. Adapter e cache cifrata del dettaglio giorno FC/Body Battery/HRV, verificando
-   timestamp, descrittori e sentinelle con fixture rappresentative.
+4. Mapping min/max V2 e cache versionata; grafici Nivo degli estremi su più giorni;
+   adapter e cache cifrata del dettaglio giorno FC/Body Battery/HRV, verificando
+   timestamp, descrittori e sentinelle con fixture rappresentative. Verifica della
+   stress aggregato V2, con unità e disponibilità esplicite.
 5. Gestore di layout e controlli locali di refresh; verifica responsive/accessibile.
 
 Verifiche di accettazione: stesso D/range in ogni pannello Garmin; notte a cavallo
 di due date; cambi d'ora e fusi diversi; nessun dato a D ma dato a D−1; prima
-importazione senza 30 giorni impliciti; 7/14/30 giorni esatti; nessun import per
+importazione giornaliera su oggi senza 30 giorni impliciti; card giornaliere anche
+con grafico su 30 giorni; min/max V2 senza quartili inventati; coppie incomplete e
+min=max; aggiornamento selettivo delle vecchie righe senza campi min/max;
+stress intragiornaliero non simulato da aggregati; 7/14/30 giorni esatti; nessun import per
 modulo assente; una sola V2 per tre moduli; riordino senza rete; istanze duplicate;
 aggiunta/rimozione durante un import; rapidi cambi di data; refresh di uno o tutti
 i moduli; errore/429 parziale; cambio credenziale/utente; persistenza del layout e
-serie cifrate nel DB. Questa revisione documenta il comportamento proposto per
-la prossima implementazione; non modifica quello già operativo.
+serie cifrate nel DB. La revisione è ora implementata; le estensioni indicate
+come future, quali periodi propri dei moduli, rimangono fuori dal perimetro.
 
 ## Fonti e perimetro
 

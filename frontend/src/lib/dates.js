@@ -24,6 +24,12 @@ export function formatDay(day, options = {}) {
   return new Intl.DateTimeFormat(languageLocale(getLanguage()), { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`));
 }
 
+export function formatDateRange(from, to) {
+  const formatter = new Intl.DateTimeFormat(languageLocale(getLanguage()), { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
+  const start = new Date(`${from}T12:00:00Z`);
+  return from === to ? formatter.format(start) : formatter.formatRange(start, new Date(`${to}T12:00:00Z`));
+}
+
 export function durationLabel(minutes) {
   const rounded = Math.round(minutes);
   const hours = Math.floor(rounded / 60);

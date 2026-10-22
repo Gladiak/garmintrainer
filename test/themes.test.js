@@ -64,3 +64,48 @@ test('tema separato per profili incompleti: validazione e isolamento account', a
   }
   assert.equal(provider.state.tokenRequests, 0);
 });
+
+test('dark mode is saved per profile, preserves omissions and never changes Garmin credentials', async t => {
+  const { register, provider } = await accountApplication(t);
+  const a = await register(values); const b = await register(values);
+  assert.equal(a.profile.darkMode, false);
+  const changed = await a.api('/profile/theme', { method: 'PATCH', body: { theme: 'ember-night', darkMode: true } });
+  assert.equal(changed.status, 200); assert.equal((await changed.json()).darkMode, true);
+  const preserved = await a.api('/profile/theme', { method: 'PATCH', body: { theme: 'ocean-gold' } });
+  assert.equal((await preserved.json()).darkMode, true);
+  const edit = await a.api('/profile', { method: 'PATCH', body: values });
+  assert.equal((await edit.json()).darkMode, true);
+  assert.equal((await (await b.api('/profile')).json()).darkMode, false);
+  for (const darkMode of [null, 'true', 1, {}]) {
+    assert.equal((await a.api('/profile/theme', { method: 'PATCH', body: { theme: 'ocean-gold', darkMode } })).status, 400);
+  }
+  const light = await a.api('/profile/theme', { method: 'PATCH', body: { theme: 'ocean-gold', darkMode: false } });
+  assert.equal((await light.json()).darkMode, false);
+  assert.equal(provider.state.tokenRequests, 0);
+});
+
+test('dark themes retain exact accent, metric and sleep colors with readable neutral surfaces', async () => {
+  const { THEMES, getTheme, applyTheme } = await import('../frontend/src/lib/palette.js');
+  const luminance = hex => hex.slice(1).match(/../g).map(value => parseInt(value, 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4).reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+  for (const light of THEMES) {
+    const dark = getTheme(light.id, true);
+    assert.equal(dark.mode, 'dark'); assert.deepEqual(dark.colors, light.colors);
+    assert.deepEqual(dark.metricColors, light.metricColors); assert.deepEqual(dark.sleepColors, light.sleepColors);
+    assert.equal(dark.palette.sageStrong, light.palette.sageStrong);
+    assert.equal(dark.palette.onAccent, light.palette.onAccent);
+    assert.ok(ratio(dark.palette.ink, dark.palette.surface) >= 4.5);
+    assert.ok(ratio(dark.palette.textMuted, dark.palette.surface) >= 4.5);
+  }
+  const properties = {};
+  const previous = global.document;
+  global.document = { documentElement: { style: { setProperty: (key, value) => { properties[key] = value; } }, dataset: {} }, querySelector: () => null };
+  try {
+    applyTheme(getTheme('sage-ivory', true));
+    assert.equal(document.documentElement.dataset.colorMode, 'dark');
+    assert.equal(document.documentElement.style.colorScheme, 'dark');
+    applyTheme(getTheme('sage-ivory'));
+    assert.equal(document.documentElement.dataset.colorMode, 'light');
+    assert.equal(properties['--surface'], '#FFFFFF');
+  } finally { global.document = previous; }
+});

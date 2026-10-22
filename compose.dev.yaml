@@ -30,6 +30,10 @@ services:
           target: /app/helpers
           initial_sync: true
         - action: sync+restart
+          path: ./shared
+          target: /app/shared
+          initial_sync: true
+        - action: sync+restart
           path: ./db/migrations
           target: /app/db/migrations
           initial_sync: true

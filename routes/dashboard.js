@@ -2,12 +2,14 @@
 
 const { Router } = require("express");
 const { dashboardController } = require("../controllers/dashboard");
+const { dashboardLayoutController } = require("../controllers/dashboard-layout");
 
 function createDashboardRouter({ garmin, getDatabase }) {
   const router = Router();
   const controller = dashboardController({ garmin, getDatabase });
   router.get('/dashboard', controller.read);
   router.post('/garmin/sync', controller.sync);
+  router.put('/dashboard/layout', dashboardLayoutController({ getDatabase }));
   router.get("/sessions", async (req, res) =>
     res.json({ sessions: await getDatabase().listSessions(req.profile.id) }),
   );

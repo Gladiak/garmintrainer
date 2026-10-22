@@ -11,6 +11,7 @@ const { createMariaDatabase } = require('../libs/mariadb');
 const { createApp } = require('../app');
 const { readConfig } = require('../libs/config');
 const { listen, setup, TEST_API_KEY } = require('./helpers');
+const { defaultLayout, validateLayout } = require('../helpers/dashboard-layout');
 
 test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio', async t => {
   const connection = readConfig().database;
@@ -31,14 +32,14 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     await admin.end();
     fs.rmSync(directory, { recursive: true, force: true });
   });
-  // Start with the previous schema to exercise a real v1 -> v2 upgrade.
+  // Start with the previous schema to exercise a real v1 -> latest upgrade.
   await admin.query(`USE ${schema}`);
   const legacy = fs.readFileSync(path.join(__dirname, '../db/migrations/mariadb/001-accounts.sql'), 'utf8');
   for (const statement of legacy.split(';').map(value => value.trim()).filter(Boolean)) await admin.query(statement);
   await admin.query('CREATE TABLE schema_migrations(version INT PRIMARY KEY)');
   await admin.query('INSERT INTO schema_migrations(version) VALUES (1)');
   database = await createMariaDatabase(config);
-  assert.equal(Number((await admin.query('SELECT MAX(version) AS version FROM schema_migrations'))[0].version), 2);
+  assert.equal(Number((await admin.query('SELECT MAX(version) AS version FROM schema_migrations'))[0].version), 5);
   const base = await listen(t, createApp({ databaseProvider: () => database, config }));
   const send = (endpoint, { method = 'GET', body, headers = {} } = {}) => fetch(`${base}/api${endpoint}`, {
     method, headers: { ...headers, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body),
@@ -92,6 +93,13 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.equal(state.avatar, savedAvatar); assert.equal(state.theme, 'ocean-gold');
     assert.equal(state.language, 'it'); assert.equal(state.credentialRevision, profile.credentialRevision);
   });
+  await t.test('modalità scura per profilo: salvataggio e isolamento nel DB', async () => {
+    assert.equal((await database.getProfile(a.profile.id)).darkMode, false);
+    const response = await send('/profile/theme', { method: 'PATCH', headers: headersA, body: { theme: 'ocean-gold', darkMode: true } });
+    assert.equal(response.status, 200); assert.equal((await response.json()).darkMode, true);
+    assert.equal((await database.getProfile(b.profile.id)).darkMode, false);
+    assert.equal(Number((await admin.query('SELECT dark_mode FROM profiles WHERE id = ?', [a.profile.id]))[0].dark_mode), 1);
+  });
   await t.test('chiave Garmin: omissione, sostituzione, rimozione e cache isolate', async () => {
     const body = { firstName: 'Ada', lastName: 'Rossi', primarySport: 'running' };
     assert.equal((await send('/profile', { method: 'PATCH', headers: headersA, body: { ...body, apiKey: 'test-replacement-key' } })).status, 200);
@@ -119,6 +127,7 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
   const { dateInZone, shiftDate } = require('../helpers/garmin-dates');
   const measurementDay = dateInZone('Europe/Rome');
   const measurementInput = { from: shiftDate(measurementDay, -6), to: measurementDay, activityFrom: measurementDay, activityTo: measurementDay, timeZone: 'Europe/Rome' };
+  let persistedLayout;
   await t.test('misure reali simulate: date, valori e ID sono cifrati in SQL, con isolamento fra utenti', async () => {
     provider.state.measurements = true;
     const response = await send('/garmin/sync', { method: 'POST', headers: headersA, body: measurementInput });
@@ -127,7 +136,7 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.equal(result.measurements.daily.at(-1).heartRateReferenceBpm, 57);
     assert.equal(result.measurements.daily.at(-1).sleepMinutes, 480);
     const stored = await admin.query('SELECT * FROM garmin_measurements WHERE profile_id = ?', [a.profile.id]);
-    assert.ok(stored.length >= 90);
+    assert.equal(stored.length, 10);
     for (const row of stored) {
       assert.match(row.payload, /^v1\./);
       assert.ok(!row.payload.includes(measurementDay));
@@ -139,6 +148,58 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.deepEqual(other.measurements.daily, []);
     assert.deepEqual(other.activities.sessions, []);
   });
+  await t.test('dettagli giornalieri e letture notturne cifrati nel DB', async () => {
+    const body = { from: measurementDay, to: measurementDay, timeZone: 'Europe/Rome', resources: ['heart-rate-day', 'body-battery-day'] };
+    const response = await send('/garmin/sync', { method: 'POST', headers: headersA, body });
+    assert.equal(response.status, 200, await response.clone().text());
+    assert.equal((await response.json()).measurements.details['body-battery-day'].points[0].value, 74);
+    const night = await send('/garmin/sync', { method: 'POST', headers: headersA, body: { ...body, view: 'wellness', resources: ['hrv-night'] } });
+    assert.equal(night.status, 200);
+    const rows = await admin.query("SELECT payload FROM garmin_measurements WHERE profile_id = ? AND resource IN ('heart-rate-day','body-battery-day','hrv-night')", [a.profile.id]);
+    assert.equal(rows.length, 3);
+    for (const row of rows) {
+      assert.match(row.payload, /^v1\./); assert.ok(!row.payload.includes('timestamp')); assert.ok(!row.payload.includes(measurementDay));
+    }
+  });
+  await t.test('layout privato, isolato e cifrato nel DB', async () => {
+    const layout = { version: 1, modules: [{ id: 'only-sleep', type: 'sleep' }] };
+    assert.equal((await send('/dashboard/layout', { method: 'PUT', headers: headersA, body: layout })).status, 200);
+    assert.deepEqual(await database.getDashboardLayout(a.profile.id), validateLayout(layout));
+    assert.notDeepEqual(await database.getDashboardLayout(b.profile.id), layout);
+    const [row] = await admin.query('SELECT payload FROM dashboard_layouts WHERE profile_id = ?', [a.profile.id]);
+    assert.match(row.payload, /^v1\./); assert.ok(!row.payload.includes('only-sleep'));
+    // Preserve all sources, with a custom order to verify the saved layout survives reopening.
+    persistedLayout = { version: 2, sections: { overview: [...defaultLayout.sections.overview].reverse(), wellness: defaultLayout.sections.wellness } };
+    await database.saveDashboardLayout(a.profile.id, persistedLayout);
+  });
+  let emptyAccount;
+  await t.test('assenza dati: esito neutro persistito, senza misure o identità inventate', async () => {
+    const response = await signup('empty-data', 'empty-data@example.test');
+    const account = await response.json();
+    emptyAccount = { id: account.profile.id, headers: { Cookie: response.headers.get('set-cookie').split(';')[0], 'X-CSRF-Token': account.csrfToken } };
+    await send('/profile', { method: 'PATCH', headers: emptyAccount.headers, body: { firstName: 'No', lastName: 'Data', primarySport: 'running', apiKey: TEST_API_KEY } });
+    provider.state.resourceStatus.wellness = 204;
+    provider.state.resourceStatus.sleep = 204;
+    try {
+      const body = { view: 'overview', from: measurementDay, to: measurementDay, timeZone: 'Europe/Rome', resources: ['wellness'] };
+      const empty = await send('/garmin/sync', { method: 'POST', headers: emptyAccount.headers, body });
+      assert.equal(empty.status, 200);
+      const result = await empty.json();
+      assert.equal(result.resourceStates.wellness.errorCode, null);
+      assert.equal(result.resourceStates.wellness.dataState, 'no_data');
+      assert.equal(await database.getGarminConnection(emptyAccount.id), null);
+      const rows = await admin.query('SELECT * FROM garmin_sync_state WHERE profile_id = ?', [emptyAccount.id]);
+      assert.equal(rows.length, 1); assert.equal(rows[0].error_code, null); assert.equal(rows[0].outcome, 'pending_identity');
+      assert.ok(!JSON.stringify(rows).includes(measurementDay));
+      assert.equal((await admin.query('SELECT * FROM garmin_measurements WHERE profile_id = ?', [emptyAccount.id])).length, 0);
+      const retained = await send('/garmin/sync', { method: 'POST', headers: headersA, body: { ...body, force: true, resources: ['sleep'] } });
+      assert.equal(retained.status, 200);
+      const previous = await retained.json();
+      assert.equal(previous.measurements.daily[0].sleepMinutes, 480);
+      assert.equal(previous.resourceStates.sleep.dataState, 'cached');
+      assert.equal(previous.resourceStates.sleep.errorCode, null);
+    } finally { provider.state.resourceStatus = {}; }
+  });
   await t.test('sessioni e profilo persistono quando il repository viene riaperto', async () => {
     await database.close(); database = null;
     database = await createMariaDatabase(config);
@@ -146,11 +207,18 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.equal(restored.status, 200);
     const state = await restored.json();
     assert.equal(state.profile.needsCompletion, false); assert.equal(state.profile.language, 'it');
-    assert.equal(state.profile.theme, 'ocean-gold'); assert.equal(state.profile.avatar, savedAvatar);
+    assert.equal(state.profile.darkMode, true); assert.equal(state.profile.theme, 'ocean-gold'); assert.equal(state.profile.avatar, savedAvatar);
     assert.equal(state.user.username, 'alice'); assert.equal(state.user.email, 'alice@example.test');
     assert.equal((await database.listSessions(a.profile.id))[0].id, session.id);
     assert.equal((await database.getGarminCredential(a.profile.id)).apiKey, TEST_API_KEY);
+    assert.deepEqual(await database.getDashboardLayout(a.profile.id), persistedLayout);
+    const connection = await database.getGarminConnection(a.profile.id);
+    const [detail] = await database.readGarminRows(a.profile.id, connection.id, 'hrv-night', [measurementDay]);
+    assert.equal(detail.values.summary, 48);
     assert.equal((await (await send('/auth/session', { headers: headersB })).json()).profile.needsCompletion, true);
+    const noData = await (await send(`/dashboard?view=overview&from=${measurementDay}&to=${measurementDay}&timeZone=Europe%2FRome`, { headers: emptyAccount.headers })).json();
+    assert.equal(noData.resourceStates.wellness.dataState, 'no_data');
+    assert.equal(noData.resourceStates.wellness.errorCode, null);
     const restoredMeasures = await (await send(`/dashboard?${new URLSearchParams(measurementInput)}`, { headers: headersA })).json();
     assert.equal(restoredMeasures.measurements.daily.at(-1).hrv, 48);
     assert.equal(restoredMeasures.activities.sessions[0].id, '9007199254740997');

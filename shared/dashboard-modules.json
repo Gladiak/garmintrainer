@@ -1,0 +1,214 @@
+{
+  "heart-card": {
+    "label": "metrics.heartReference",
+    "size": "compact",
+    "resources": [
+      "wellness"
+    ],
+    "daily": true,
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "sleep-card": {
+    "label": "metrics.sleep",
+    "size": "compact",
+    "resources": [
+      "sleep"
+    ],
+    "daily": true,
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "battery-card": {
+    "label": "metrics.bodyBattery",
+    "size": "compact",
+    "resources": [
+      "wellness"
+    ],
+    "daily": true,
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "stress-card": {
+    "label": "metrics.stress",
+    "size": "compact",
+    "resources": [
+      "wellness"
+    ],
+    "daily": true,
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "hrv-card": {
+    "label": "metrics.hrv",
+    "size": "compact",
+    "resources": [
+      "hrv"
+    ],
+    "daily": true,
+    "optional": true,
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "heart-rate": {
+    "label": "modules.heartRate",
+    "size": "wide",
+    "resources": [
+      "wellness"
+    ],
+    "dayResources": [
+      "heart-rate-day"
+    ],
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "body-battery": {
+    "label": "metrics.bodyBattery",
+    "size": "wide",
+    "resources": [
+      "wellness"
+    ],
+    "dayResources": [
+      "body-battery-day"
+    ],
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "hrv": {
+    "label": "metrics.hrv",
+    "size": "wide",
+    "resources": [
+      "hrv"
+    ],
+    "dayResources": [
+      "hrv-night"
+    ],
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "sleep": {
+    "label": "sleep.title",
+    "size": "wide",
+    "resources": [
+      "sleep"
+    ],
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "stress": {
+    "label": "metrics.stress",
+    "size": "wide",
+    "resources": [
+      "wellness"
+    ],
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "activities": {
+    "label": "training.title",
+    "size": "wide",
+    "resources": [
+      "activities"
+    ],
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "planner": {
+    "label": "plan.title",
+    "size": "wide",
+    "resources": [],
+    "sections": [
+      "plan"
+    ]
+  },
+  "steps-card": {
+    "label": "health.steps",
+    "size": "compact",
+    "resources": [
+      "wellness"
+    ],
+    "daily": true,
+    "sections": [
+      "overview",
+      "wellness"
+    ]
+  },
+  "respiration-card": {
+    "label": "health.respiration",
+    "size": "compact",
+    "resources": [
+      "wellness"
+    ],
+    "daily": true,
+    "sections": [
+      "wellness"
+    ]
+  },
+  "spo2-card": {
+    "label": "health.spo2",
+    "size": "compact",
+    "resources": [
+      "wellness"
+    ],
+    "daily": true,
+    "sections": [
+      "wellness"
+    ]
+  },
+  "respiration": {
+    "label": "health.respiration",
+    "size": "wide",
+    "resources": [
+      "wellness"
+    ],
+    "sections": [
+      "wellness"
+    ]
+  },
+  "spo2": {
+    "label": "health.spo2",
+    "size": "wide",
+    "resources": [
+      "wellness"
+    ],
+    "sections": [
+      "wellness"
+    ]
+  },
+  "training-status": {
+    "label": "training.statusTitle",
+    "size": "wide",
+    "resources": [
+      "hrv",
+      "sleep",
+      "wellness",
+      "activities"
+    ],
+    "historyDays": { "hrv": 1, "sleep": 7, "wellness": 8, "activities": 28 },
+    "sections": [
+      "overview"
+    ]
+  }
+}

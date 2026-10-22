@@ -15,7 +15,7 @@ function createProfilesRouter({ getDatabase, garmin }) {
   });
   router.patch("/theme", async (req, res) =>
     res.json(
-      await getDatabase().updateProfileTheme(req.profile.id, req.body?.theme),
+      await getDatabase().updateProfileTheme(req.profile.id, req.body?.theme, req.body?.darkMode),
     ),
   );
   return router;

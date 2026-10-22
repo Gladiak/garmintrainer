@@ -1,0 +1,28 @@
+{
+  "overview": [
+    "heart-card",
+    "sleep-card",
+    "battery-card",
+    "stress-card",
+    "hrv-card",
+    "steps-card",
+    "training-status",
+    "heart-rate",
+    "body-battery",
+    "activities"
+  ],
+  "wellness": [
+    "heart-card",
+    "hrv-card",
+    "sleep-card",
+    "respiration-card",
+    "spo2-card",
+    "stress-card",
+    "hrv",
+    "body-battery",
+    "sleep",
+    "stress",
+    "respiration",
+    "spo2"
+  ]
+}

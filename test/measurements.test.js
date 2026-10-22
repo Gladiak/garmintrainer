@@ -52,7 +52,7 @@ test('dashboard: first import, typed measures, cache, real forced refresh and pe
 test('interval navigation fetches ad hoc dates, and partial provider failures preserve cached data', async t => {
   const { a, provider } = await fixture(t);
   await a.api('/garmin/sync', { method: 'POST', body: input });
-  const older = { ...input, from: shiftDate(to, -43), to: shiftDate(to, -30), resources: ['wellness', 'hrv', 'sleep'] };
+  const older = { ...input, view: 'wellness', from: shiftDate(to, -43), to: shiftDate(to, -30), resources: ['wellness', 'hrv', 'sleep'] };
   const response = await a.api('/garmin/sync', { method: 'POST', body: older });
   assert.equal(response.status, 200);
   const result = await response.json();
@@ -131,8 +131,10 @@ test('a temporary empty response keeps the previous values explicitly marked as 
   const result = await (await a.api('/garmin/sync', { method: 'POST', body: { ...input, force: true } })).json();
   assert.equal(result.measurements.daily.at(-1).sleepMinutes, 480);
   assert.equal(result.measurements.daily.at(-1).availability.sleepMinutes, 'not_in_latest_response');
-  assert.equal(result.measurements.sync.sleep.state, 'stale');
+  assert.equal(result.measurements.sync.sleep.state, 'fresh');
   assert.equal(result.measurements.sync.sleep.complete, false);
+  assert.equal(result.measurements.sync.sleep.errorCode, null);
+  assert.equal(result.measurements.sync.sleep.dataState, 'cached');
 });
 
 test('an incomplete activity pagination never publishes definitive totals', async t => {

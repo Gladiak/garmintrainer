@@ -93,6 +93,7 @@ try {
       "routes",
       "controllers",
       "helpers",
+      "shared",
       "langs",
       "db/migrations/mariadb",
       "frontend",

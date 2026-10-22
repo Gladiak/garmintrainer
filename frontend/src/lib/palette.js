@@ -3,6 +3,12 @@ import interfaceColors from '../../../libs/theme-interface.json' with { type: 'j
 
 export const DEFAULT_THEME_ID = 'sage-ivory';
 export const UI_PALETTE = Object.freeze(interfaceColors);
+export const DARK_UI_PALETTE = Object.freeze({ ...UI_PALETTE,
+  ivory: '#151515', surface: '#202020', mist: '#303030', mistSoft: '#252525',
+  moss: '#525252', sand: '#454545', ink: '#EEEEEE', textMuted: '#B0B0B0',
+  border: '#424242', controlBorder: '#747474', mossSoft: '#292929', sandSoft: '#2C2C2C',
+  sidebarNote: '#262626', scrim: '#00000099', danger: '#F19B9B', dangerHover: '#FFC0C0', dangerSurface: '#402727',
+});
 
 function mix(base, tint, amount) {
   const channels = (hex) => hex.slice(1).match(/../g).map((value) => parseInt(value, 16));
@@ -46,15 +52,32 @@ export const THEMES = definitions.map((definition) => {
   });
 });
 
-export function getTheme(id) { return THEMES.find((theme) => theme.id === id) || THEMES[0]; }
+const darkThemes = THEMES.map(theme => Object.freeze({ ...theme, mode: 'dark',
+  palette: Object.freeze({ ...theme.palette, ...DARK_UI_PALETTE,
+    sage: theme.palette.sage, sageStrong: theme.palette.sageStrong, onAccent: theme.palette.onAccent,
+    accentInk: DARK_UI_PALETTE.ink, focusColor: DARK_UI_PALETTE.ink,
+    accentSoft: mix(DARK_UI_PALETTE.surface, theme.colors.accent, 0.18),
+  }),
+  dataPalette: Object.freeze({ ...theme.dataPalette,
+    dataPrimarySoft: mix(DARK_UI_PALETTE.surface, theme.colors.chartPrimary, 0.18),
+    dataSecondarySoft: mix(DARK_UI_PALETTE.surface, theme.colors.chartSecondary, 0.18),
+    dataTertiarySoft: mix(DARK_UI_PALETTE.surface, theme.colors.chartTertiary, 0.18),
+  }),
+}));
+
+export function getTheme(id, darkMode = false) {
+  const themes = darkMode ? darkThemes : THEMES;
+  return themes.find(theme => theme.id === id) || themes[0];
+}
 
 export function applyTheme(theme) {
   for (const [name, color] of Object.entries({ ...theme.palette, ...theme.dataPalette })) {
     document.documentElement.style.setProperty(`--${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`, color);
   }
   document.documentElement.dataset.theme = theme.id;
-  document.documentElement.style.colorScheme = 'light';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', UI_PALETTE.ivory);
+  document.documentElement.dataset.colorMode = theme.mode;
+  document.documentElement.style.colorScheme = theme.mode;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.palette.ivory);
 }
 
 export function cachedProfileTheme() {

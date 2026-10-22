@@ -1,0 +1,1 @@
+ALTER TABLE garmin_sync_state ADD COLUMN IF NOT EXISTS outcome VARCHAR(24) CHARACTER SET ascii NULL;

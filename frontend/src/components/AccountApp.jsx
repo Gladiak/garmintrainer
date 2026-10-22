@@ -20,7 +20,7 @@ export default function AccountApp() {
   const authenticated = useCallback(session => {
     setCsrfToken(session.csrfToken);
     setProfileLanguage(session.profile.language, session.profile.id);
-    setProfileTheme(session.profile.theme, session.profile.id);
+    setProfileTheme(session.profile.theme, session.profile.id, session.profile.darkMode);
     setAccount(session);
   }, [setProfileTheme]);
   const restore = useCallback(async signal => {

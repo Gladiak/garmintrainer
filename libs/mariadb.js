@@ -67,7 +67,7 @@ async function createMariaDatabase(config = readConfig()) {
     const lastName = decrypt(row.last_name, row.id, 'lastName');
     return { id: row.id, firstName, lastName, primarySport: row.primary_sport,
       avatar: row.avatar ? decrypt(row.avatar, row.id, 'avatar') : null,
-      theme: row.theme, language: row.language, hasGarminKey: Boolean(row.garmin_key),
+      theme: row.theme, darkMode: Boolean(row.dark_mode), language: row.language, hasGarminKey: Boolean(row.garmin_key),
       credentialRevision: row.credential_revision, createdAt: row.created_at, updatedAt: row.updated_at,
       needsCompletion: !firstName || !lastName || !row.primary_sport };
   }
@@ -119,9 +119,10 @@ async function createMariaDatabase(config = readConfig()) {
       });
       return getProfile(id);
     },
-    async updateProfileTheme(id, theme) {
+    async updateProfileTheme(id, theme, darkMode) {
       if (!themes.has(theme)) throw new InputError('Tema non valido.', 400, 'INVALID_THEME');
-      await query('UPDATE profiles SET theme = ?, updated_at = ? WHERE id = ?', [theme, now(), id]);
+      if (darkMode !== undefined && typeof darkMode !== 'boolean') throw new InputError('Modalità tema non valida.', 400, 'INVALID_INPUT');
+      await query(`UPDATE profiles SET theme = ?, updated_at = ?${darkMode === undefined ? '' : ', dark_mode = ?'} WHERE id = ?`, [theme, now(), ...(darkMode === undefined ? [] : [darkMode]), id]);
       return getProfile(id);
     },
     async getGarminCredential(id) {

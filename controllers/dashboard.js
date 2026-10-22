@@ -11,7 +11,7 @@ function dashboardController({ garmin, getDatabase }) {
       const client = await garmin.getClient(profile.id);
       const snapshot = await measurements.read(profile, req.query);
       res.json({ profile, garmin: client.getTokenStatus(), storage: { ready: true, type: 'mariadb' },
-        ...snapshot, sessions: await getDatabase().listSessions(profile.id) });
+        ...snapshot, layout: await getDatabase().getDashboardLayout(profile.id), sessions: await getDatabase().listSessions(profile.id) });
     },
     async sync(req, res) {
       const previous = pending.get(req.profile.id);

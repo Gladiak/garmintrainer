@@ -3,6 +3,8 @@
 const { randomUUID } = require('node:crypto');
 const { InputError, validateProfile, validateSession } = require('../libs/validation');
 const themes = new Set(require('../libs/themes.json').map(theme => theme.id));
+const { defaultLayout, upgradeLayout } = require('../helpers/dashboard-layout');
+const { dateRange } = require('../helpers/garmin-dates');
 
 // Test double for fast HTTP behavior checks. Persistence and encryption are
 // verified separately against the production MariaDB repository in Docker.
@@ -16,6 +18,7 @@ function createMemoryRepository() {
   const measurements = new Map();
   const syncStates = new Map();
   const syncLocks = new Map();
+  const layouts = new Map();
   function checkGarminWriter(profile, owner) {
     if (getProfile(profile.id).credentialRevision !== profile.credentialRevision || syncLocks.get(profile.id) !== owner) {
       throw new InputError('Collegamento cambiato.', 409, 'PROFILE_CREDENTIAL_CHANGED');
@@ -38,6 +41,8 @@ function createMemoryRepository() {
   }
   return {
     ready() {},
+    getDashboardLayout(id) { return layouts.has(id) ? upgradeLayout(layouts.get(id)) : structuredClone(defaultLayout); },
+    saveDashboardLayout(id, layout) { layouts.set(id, structuredClone(layout)); },
     getGarminConnection(profileId) { return structuredClone(connections.get(profileId) || null); },
     connectGarmin(profile, identity, settings, owner) {
       checkGarminWriter(profile, owner);
@@ -57,10 +62,10 @@ function createMemoryRepository() {
       checkGarminWriter(profile, owner);
       for (const record of records) measurements.set(`${profile.id}:${connectionId}:${resource}:${record.date}`, { ...structuredClone(record), fetchedAt: Date.now() });
     },
-    getGarminSyncState(profileId) { return [...syncStates.values()].filter(row => row.profileId === profileId); },
-    setGarminSyncState(profile, resource, error, owner) {
+    getGarminSyncState(profileId, scopes, revision) { return [...syncStates.values()].filter(row => row.profileId === profileId && row.revision === revision && (!scopes || scopes[row.resource] && row.date >= scopes[row.resource].from && row.date <= scopes[row.resource].to)); },
+    setGarminSyncState(profile, resource, error, owner, scope, outcome = null) {
       checkGarminWriter(profile, owner);
-      syncStates.set(`${profile.id}:${resource}`, { profileId: profile.id, resource, errorCode: error?.code || null, retryAt: error?.retryAt || null, lastAttemptAt: Date.now() });
+      for (const date of dateRange(scope.from, scope.to, 62)) syncStates.set(`${profile.id}:${profile.credentialRevision}:${resource}:${date}`, { profileId: profile.id, revision: profile.credentialRevision, resource, date, errorCode: error?.code || null, retryAt: error?.retryAt || null, lastAttemptAt: Date.now(), outcome });
     },
     acquireGarminSync(profileId, owner) {
       if (syncLocks.has(profileId)) return false;
@@ -71,7 +76,7 @@ function createMemoryRepository() {
       if ([...users.values()].some(user => user.username.toLowerCase() === username.toLowerCase() || user.email.toLowerCase() === email.toLowerCase())) throw new InputError('Account esistente.', 409, 'ACCOUNT_EXISTS');
       const id = randomUUID(); const profileId = randomUUID(); const createdAt = now();
       users.set(id, { id, username, email, passwordHash, profileId, createdAt });
-      profiles.set(profileId, { id: profileId, firstName: '', lastName: '', primarySport: null, avatar: null, theme: 'sage-ivory', language: 'en', hasGarminKey: false, credentialRevision: 0, createdAt, updatedAt: createdAt });
+      profiles.set(profileId, { id: profileId, firstName: '', lastName: '', primarySport: null, avatar: null, theme: 'sage-ivory', darkMode: false, language: 'en', hasGarminKey: false, credentialRevision: 0, createdAt, updatedAt: createdAt });
       credentials.set(profileId, '');
       return getUser(id);
     },
@@ -93,10 +98,11 @@ function createMemoryRepository() {
       profiles.set(id, profile);
       return getProfile(id);
     },
-    updateProfileTheme(id, theme) {
+    updateProfileTheme(id, theme, darkMode) {
       const profile = getProfile(id);
       if (!themes.has(theme)) throw new InputError('Tema non valido.', 400, 'INVALID_THEME');
-      profiles.set(id, { ...profile, theme, updatedAt: now() });
+      if (darkMode !== undefined && typeof darkMode !== 'boolean') throw new InputError('Modalità tema non valida.', 400, 'INVALID_INPUT');
+      profiles.set(id, { ...profile, theme, ...(darkMode === undefined ? {} : { darkMode }), updatedAt: now() });
       return getProfile(id);
     },
     getGarminCredential(id) { return { apiKey: credentials.get(id), revision: getProfile(id).credentialRevision }; },

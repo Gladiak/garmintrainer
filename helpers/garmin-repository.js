@@ -3,6 +3,8 @@
 const { randomUUID } = require('node:crypto');
 const { InputError } = require('../libs/validation');
 const { createGarminVault } = require('./garmin-vault');
+const { defaultLayout, upgradeLayout } = require('./dashboard-layout');
+const { dateRange } = require('./garmin-dates');
 
 function createGarminRepository({ query, transaction, keyPath }) {
   const vault = createGarminVault(keyPath);
@@ -14,6 +16,14 @@ function createGarminRepository({ query, transaction, keyPath }) {
     }
   }
   return {
+    async getDashboardLayout(profileId) {
+      const [row] = await query('SELECT payload FROM dashboard_layouts WHERE profile_id = ?', [profileId]);
+      return row ? upgradeLayout(vault.decrypt(profileId, 'dashboard-layout', row.payload)) : structuredClone(defaultLayout);
+    },
+    async saveDashboardLayout(profileId, layout) {
+      await query('INSERT INTO dashboard_layouts(profile_id,payload) VALUES (?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)',
+        [profileId, vault.encrypt(profileId, 'dashboard-layout', layout)]);
+    },
     async getGarminConnection(profileId) {
       const [row] = await query('SELECT * FROM garmin_connections WHERE profile_id = ?', [profileId]);
       return row ? { id: row.connection_id, revision: row.credential_revision, updatedAt: Number(row.updated_at),
@@ -51,14 +61,21 @@ function createGarminRepository({ query, transaction, keyPath }) {
         }
       });
     },
-    async getGarminSyncState(profileId) {
-      return Array.from(await query('SELECT resource,error_code AS errorCode,retry_at AS retryAt,last_attempt_at AS lastAttemptAt FROM garmin_sync_state WHERE profile_id = ?', [profileId]));
+    async getGarminSyncState(profileId, scopes, revision) {
+      const rows = await query('SELECT resource,range_lookup AS rangeLookup,credential_revision AS revision,error_code AS errorCode,retry_at AS retryAt,last_attempt_at AS lastAttemptAt,outcome FROM garmin_sync_state WHERE profile_id = ? AND credential_revision = ?', [profileId, revision]);
+      if (!scopes) return Array.from(rows);
+      const days = new Map(Object.entries(scopes).flatMap(([resource, scope]) => dateRange(scope.from, scope.to, 62)
+        .map(date => [vault.lookup(profileId, `day-state:${revision}:${resource}`, date), date])));
+      return Array.from(rows).filter(row => days.has(row.rangeLookup)).map(row => ({ ...row, date: days.get(row.rangeLookup) }));
     },
-    async setGarminSyncState(profile, resource, error, owner) {
+    async setGarminSyncState(profile, resource, error, owner, scope, outcome = null) {
       await transaction(async conn => {
         await checkWriter(conn, profile, owner);
-        await conn.query('INSERT INTO garmin_sync_state(profile_id,resource,error_code,retry_at,last_attempt_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE error_code=VALUES(error_code),retry_at=VALUES(retry_at),last_attempt_at=VALUES(last_attempt_at)',
-          [profile.id, resource, error?.code || null, error?.retryAt || null, Date.now()]);
+        for (const date of dateRange(scope.from, scope.to, 62)) {
+          const lookup = vault.lookup(profile.id, `day-state:${profile.credentialRevision}:${resource}`, date);
+          await conn.query('INSERT INTO garmin_sync_state(profile_id,resource,range_lookup,credential_revision,error_code,retry_at,last_attempt_at,outcome) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE error_code=VALUES(error_code),retry_at=VALUES(retry_at),last_attempt_at=VALUES(last_attempt_at),outcome=VALUES(outcome)',
+            [profile.id, resource, lookup, profile.credentialRevision, error?.code || null, error?.retryAt || null, Date.now(), outcome]);
+        }
       });
     },
     async acquireGarminSync(profileId, owner) {

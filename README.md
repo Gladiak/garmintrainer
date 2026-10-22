@@ -7,23 +7,40 @@ training plan and saved language and theme preferences.
 ## Features
 
 - Create, complete, reopen and delete workout sessions in the weekly planner.
-- Review recorded Garmin activity hours across two months, with colour bands
-  that make activity time easy to compare. The local planner remains separate.
-- Display real Garmin heart rate, HRV, Body Battery, stress and sleep summaries.
-  Browse historical intervals and refresh the displayed data on demand.
+- Review Garmin activity hours over the selected dates, with daily totals and
+  activity details. The local planner remains separate.
+- Open Overview on today and browse one day at a time: heart rate, HRV, Body
+  Battery, stress, sleep, steps and daily training information.
+- Explore Wellbeing over 1/7/14/30 days: recovery, HRV status and personal baseline,
+  sleep score, stress, respiration and SpO₂, when reported by your device.
+- Customize dashboard modules: add, remove and reorder panels for your profile.
+  Keep separate layouts for Overview and Wellbeing. The weekly planner has its
+  own full-width page.
 - Keep imported measurements encrypted in MariaDB, including their dates and
   Garmin identifiers. Missing device measurements stay explicitly unavailable.
 - Manage a personal profile with name, main sport, optional photo and Garmin key.
 - Use English, Italian, French, Spanish or German and choose among six themes.
+  Enable dark mode without changing theme accents or data colors.
   Saved preferences persist across sessions.
 
 ## Project status
 
 Account management, profiles and the workout planner persist in MariaDB.
 A saved personal Garmin key enables automatic token preparation and import of
-real dashboard measurements. First access retrieves 30 days of summaries;
-subsequent navigation retrieves the needed intervals, and Refresh downloads the
-displayed intervals again. The dashboard has no sample-data mode.
+real dashboard measurements. First access retrieves only the day and sources
+needed by the modules of the open section. Navigation retrieves the selected intervals, and
+Refresh downloads their data again. Stress uses daily aggregates; detailed activity
+tooltips use search summaries without downloading activity files. The dashboard has no sample-data mode.
+Views following today advance at midnight in the Garmin timezone, including after
+standby. Historical selections stay fixed. Days with no synced device data are a
+neutral empty state; manual refresh can check them again.
+The Fitness and recovery panel combines sleep quality, nightly HRV and Garmin's
+personal baseline, Body Battery, stress and reference heart rate. It retrieves
+7 nights of sleep, 8 days of wellness summaries and 28 days of activities for
+weekly activity load comparisons and the latest VO₂ max reading. Comparisons
+show dates and data coverage; VO₂ max compares separate dates in the same sport.
+Missing measurements stay unavailable. Activity load is the sum of available
+activity values, not Garmin's acute load or native Training Status.
 Training plans are not sent to Garmin devices.
 Email delivery, email verification and password reset are not implemented.
 
