@@ -136,7 +136,9 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     assert.equal(result.measurements.daily.at(-1).heartRateReferenceBpm, 57);
     assert.equal(result.measurements.daily.at(-1).sleepMinutes, 480);
     const stored = await admin.query('SELECT * FROM garmin_measurements WHERE profile_id = ?', [a.profile.id]);
-    assert.equal(stored.length, 10);
+    assert.deepEqual(Object.fromEntries(['wellness', 'sleep', 'hrv', 'activities'].map(resource =>
+      [resource, stored.filter(row => row.resource === resource).length])),
+    { wellness: 8, sleep: 7, hrv: 1, activities: 28 }, 'recovery history is persisted as well as the visible day');
     for (const row of stored) {
       assert.match(row.payload, /^v1\./);
       assert.ok(!row.payload.includes(measurementDay));
@@ -189,7 +191,10 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
       assert.equal(result.resourceStates.wellness.dataState, 'no_data');
       assert.equal(await database.getGarminConnection(emptyAccount.id), null);
       const rows = await admin.query('SELECT * FROM garmin_sync_state WHERE profile_id = ?', [emptyAccount.id]);
-      assert.equal(rows.length, 1); assert.equal(rows[0].error_code, null); assert.equal(rows[0].outcome, 'pending_identity');
+      assert.equal(rows.length, 8, 'wellness includes the reference day and seven prior days for recovery');
+      for (const row of rows) {
+        assert.equal(row.error_code, null); assert.equal(row.outcome, 'pending_identity');
+      }
       assert.ok(!JSON.stringify(rows).includes(measurementDay));
       assert.equal((await admin.query('SELECT * FROM garmin_measurements WHERE profile_id = ?', [emptyAccount.id])).length, 0);
       const retained = await send('/garmin/sync', { method: 'POST', headers: headersA, body: { ...body, force: true, resources: ['sleep'] } });
