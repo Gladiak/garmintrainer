@@ -1,0 +1,144 @@
+[
+  {
+    "id": "sage-ivory",
+    "name": "Salvia e avorio",
+    "description": "Verde salvia e toni naturali",
+    "swatches": [
+      "#6B7F6E",
+      "#A7B8A7",
+      "#D9E1D9",
+      "#F4EFE8",
+      "#C9BDAF"
+    ],
+    "colors": {
+      "accent": "#6B7F6E",
+      "chartPrimary": "#6B7F6E",
+      "chartSecondary": "#718671",
+      "chartTertiary": "#8B7760",
+      "sleep": [
+        "#6B7F6E",
+        "#A7B8A7",
+        "#D9E1D9"
+      ]
+    }
+  },
+  {
+    "id": "slate-night",
+    "name": "Blu ardesia",
+    "description": "Blu profondo e grigio ghiaccio",
+    "swatches": [
+      "#06141B",
+      "#11212D",
+      "#253745",
+      "#4A5C6A",
+      "#9BA8AB",
+      "#CCD0CF"
+    ],
+    "colors": {
+      "accent": "#253745",
+      "chartPrimary": "#253745",
+      "chartSecondary": "#4A5C6A",
+      "chartTertiary": "#667D8C",
+      "sleep": [
+        "#253745",
+        "#4A5C6A",
+        "#9BA8AB"
+      ]
+    }
+  },
+  {
+    "id": "ember-night",
+    "name": "Arancio sportivo",
+    "description": "Grafite e arancio acceso",
+    "swatches": [
+      "#1A2730",
+      "#424048",
+      "#45586C",
+      "#B0CEE2",
+      "#A63E1B",
+      "#E95D2C"
+    ],
+    "colors": {
+      "accent": "#E95D2C",
+      "chartPrimary": "#A63E1B",
+      "chartSecondary": "#45586C",
+      "chartTertiary": "#C65D32",
+      "sleep": [
+        "#E95D2C",
+        "#45586C",
+        "#B0CEE2"
+      ]
+    }
+  },
+  {
+    "id": "mauve-dusk",
+    "name": "Rosa malva",
+    "description": "Rosa polveroso, malva e blu",
+    "swatches": [
+      "#2E365A",
+      "#6B597F",
+      "#A2869C",
+      "#BD6C73",
+      "#92A1C2",
+      "#3F5B8D"
+    ],
+    "colors": {
+      "accent": "#BD6C73",
+      "chartPrimary": "#BD6C73",
+      "chartSecondary": "#6B597F",
+      "chartTertiary": "#3F5B8D",
+      "sleep": [
+        "#6B597F",
+        "#A2869C",
+        "#92A1C2"
+      ]
+    }
+  },
+  {
+    "id": "vanilla-pastel",
+    "name": "Giallo vaniglia",
+    "description": "Giallo pastello, azzurro e menta",
+    "swatches": [
+      "#D8DFE9",
+      "#CFDECA",
+      "#EFF0A3",
+      "#212121",
+      "#F6F5FA"
+    ],
+    "colors": {
+      "accent": "#EFF0A3",
+      "chartPrimary": "#6D7734",
+      "chartSecondary": "#52755C",
+      "chartTertiary": "#5D7397",
+      "sleep": [
+        "#657996",
+        "#CFDECA",
+        "#EFF0A3"
+      ]
+    }
+  },
+  {
+    "id": "ocean-gold",
+    "name": "Petrolio e oro",
+    "description": "Blu petrolio, giallo e arancio",
+    "swatches": [
+      "#F1F6F4",
+      "#FFC801",
+      "#114C5A",
+      "#D9E8E2",
+      "#FF9932",
+      "#172B36"
+    ],
+    "colors": {
+      "accent": "#FFC801",
+      "chartPrimary": "#997300",
+      "chartSecondary": "#114C5A",
+      "chartTertiary": "#A55211",
+      "sleep": [
+        "#114C5A",
+        "#FFC801",
+        "#FF9932"
+      ]
+    }
+  }
+]

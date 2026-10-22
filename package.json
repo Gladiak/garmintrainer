@@ -1,17 +1,41 @@
 {
   "name": "garmintrainer",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend personale per dati Garmin e pianificazione degli allenamenti",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "node --watch app.js",
+    "dev:client": "vite --config vite.config.mjs",
+    "build": "vite build --config vite.config.mjs",
+    "preview": "vite preview --config vite.config.mjs",
+    "test": "node --test test/*.test.js",
+    "test:simulation": "node test/simulation-smoke.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@nivo/bar": "^0.99.0",
+    "@nivo/calendar": "^0.99.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/line": "^0.99.0",
     "axios": "^1.20.0",
-    "express": "^5.3.0"
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "lucide-react": "^1.61.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "vite": "^8.3.5"
   }
 }

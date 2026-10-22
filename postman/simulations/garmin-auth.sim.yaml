@@ -1,0 +1,5 @@
+simulation: garmin-personal-auth
+routing: path
+mocks:
+  - routeKey: garmin
+    path: ../mocks/garmin/config.yaml
