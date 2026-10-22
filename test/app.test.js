@@ -2,20 +2,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createApp } = require('../app');
-const { createDatabase } = require('../libs/database');
-const { createGarminProfileManager } = require('../libs/garmin');
-const { setup, listen, TEST_API_KEY } = require('./helpers');
+const { accountApplication, TEST_API_KEY } = require('./helpers');
 
 async function application(t, options = {}) {
-  const provider = await setup(t, options);
-  const database = createDatabase(':memory:');
-  t.after(() => database.close());
-  const profile = database.createProfile({ firstName: 'Test', lastName: 'Utente', primarySport: 'running', apiKey: TEST_API_KEY });
-  const garminManager = createGarminProfileManager({ databaseProvider: () => database, config: { baseUrl: provider.baseUrl } });
-  const app = createApp({ garminManager, databaseProvider: () => database });
-  const baseUrl = await listen(t, app);
-  return { ...provider, appUrl: baseUrl, headers: { 'X-Profile-Id': profile.id } };
+  const fixture = await accountApplication(t, options);
+  const a = await fixture.register({ firstName: 'Test', lastName: 'Utente', primarySport: 'running', apiKey: TEST_API_KEY });
+  return { appUrl: fixture.base, state: fixture.provider.state, headers: a.headers };
 }
 
 test('Express risponde a health e status senza contattare Garmin', async (t) => {

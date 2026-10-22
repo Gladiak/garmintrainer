@@ -1,59 +1,35 @@
-# Local profile management contract
+# Profile API
 
-All routes are local to this Express installation, below `/api`. Profiles are
-local workspaces, not authenticated user accounts. Responses never include the
-stored Garmin key or access token.
+The public multi-profile testing API has been replaced by authenticated accounts.
+See [the account API contract](account-api.md) for registration, login, session
+cookies, CSRF, ownership and the single-profile endpoints.
 
-| Method and path | Input | Success | Errors and side effects |
-| --- | --- | --- | --- |
-| `GET /profiles` | None | `200 { profiles: [...] }`, in creation order | Metadata includes names, sport, avatar, theme, language and `hasGarminKey`. |
-| `POST /profiles` | Required `firstName`, `lastName`, `primarySport`; optional `avatar`, `apiKey`, `theme`, `language` | `201` profile metadata | Invalid fields: `400`; does not contact Garmin. |
-| `PATCH /profiles/:id` | Same required fields as creation; optional fields preserve saved values when omitted | `200` updated metadata | Missing profile: `404 PROFILE_NOT_FOUND`; changing/removing a key invalidates only that profile's token cache. |
-| `PATCH /profiles/:id/theme` | `{ "theme": "sage-ivory" }` or another ID from `libs/themes.json` | `200` updated metadata | Invalid/missing theme: `400 INVALID_THEME`; missing profile: `404 PROFILE_NOT_FOUND`. Changes only theme and update time, including for incomplete legacy profiles. Credentials and token cache remain unchanged. |
-| `DELETE /profiles/:id` | None | `204`, empty body | Missing profile: `404 PROFILE_NOT_FOUND`. Atomically removes that profile and its local sessions, avatar and encrypted Garmin key; invalidates only its token cache. No Garmin request. |
+`GET /api/profile` and `PATCH /api/profile` address only the signed in user's
+profile. There are no profile lists, arbitrary profile identifiers, creation,
+switching or deletion endpoints. `X-Profile-Id` has no effect.
 
-The browser owns the active profile selection. Editing an inactive profile does
-not activate it; creating a profile selects it. Deleting the current profile
-selects the first remaining profile, or clears the selection if none remain.
-Deleting another profile preserves the current selection. UI deletion requires
-an explicit confirmation in the profile popup. Theme previews are temporary
-until settings are saved; cancel restores the persisted theme.
+Profile updates require firstName, lastName and primarySport. Names are limited
+to 80 characters each. Sports: running, cycling, swimming, gym, hiit. Garmin
+apiKey, avatar, theme and language are optional; omission preserves saved values.
+An empty API key preserves the existing credential; `apiKey: null` removes it.
+Keys never appear in responses. Updating a key invalidates that account's Garmin
+cache; changes to language/theme/photo do not.
 
-## Profile language
+Language accepts en (default), it, fr, es, de. Invalid values return
+400 INVALID_LANGUAGE without partial updates. The browser previews changes
+instantly and saves them with the profile. Cancellation restores the saved
+language. Theme updates also support `PATCH /api/profile/theme` before onboarding.
 
-`language` accepts exactly `en` (English), `it` (Italian), `fr` (French), `es`
-(Spanish), or `de` (German). Creation defaults to `en`; migration `005` also
-assigns `en` to existing profiles. Omission on update preserves the saved value.
-Explicit `null`, empty strings, unsupported codes and non-string values return
-`400 INVALID_LANGUAGE` without partial changes. Language is returned in profile
-lists, create/update responses, and dashboard metadata. Changing language does
-not rotate credentials or invalidate Garmin's token cache.
+Avatar input accepts JPEG/PNG/WebP data URLs up to 5 MiB. The server validates
+and recodes to 256×256 WebP, removes metadata, then encrypts the result in MariaDB.
+The profile JSON parser accepts up to 7 MiB; other endpoints retain a 32 KiB limit.
 
-Example: `PATCH /profiles/:id` with
-`{"firstName":"Ada","lastName":"Rossi","primarySport":"running","language":"fr"}`.
+An incomplete profile opens the first-access popup automatically. Required fields
+must be saved to dismiss it; Garmin key and photo can be added later. Completing
+the profile persists across sessions and restarts. The same form remains available
+under My profile without creating another profile.
 
-The browser immediately applies the selected profile's language. The profile
-form previews language changes for the active or a new profile; cancel restores
-the active profile's saved language. Editing an inactive profile does not change
-the current interface language. The browser caches the active profile's language
-for startup; the server's saved profile remains authoritative. With no selected
-profile the interface uses English. User-entered names, session titles and notes
-are preserved verbatim. Localized API errors use an optional `error.messageKey`
-alongside the existing error code and message; unknown errors get a safe local
-fallback in the interface.
-
-## Automatic Garmin access in the browser
-
-After loading the current profile's dashboard (startup, selection, refresh or
-saving the active profile), the browser calls `POST /garmin/auth/ensure` with
-`X-Profile-Id` if Garmin is configured and the token is missing, expired or due
-for renewal (`refreshRequired`). The endpoint returns token status only, never
-the key or token. It reuses the existing per-profile cache and renewal logic.
-Profile creation/update endpoints still persist locally without calling Garmin.
-
-Preparation runs in the background and does not delay the local dashboard or
-make a saved profile appear unsaved if Garmin fails. Errors appear separately
-from database/backend errors; another dashboard refresh or profile selection
-retries once, without an automatic retry loop. Changing profiles or saving a
-replacement key cancels the previous browser request, and late results cannot
-replace the current profile's status. Inactive profiles are prepared when selected.
+After a dashboard load, the browser prepares Garmin access in the background if
+a key exists and a token is missing or due for renewal. This uses the session
+cookie and CSRF token. Provider failures appear separately and do not undo local
+saves. Aborted or stale responses cannot replace the current screen state.

@@ -1,26 +1,30 @@
 'use strict';
 
 const fs = require('node:fs');
-const { randomBytes, createCipheriv, createDecipheriv } = require('node:crypto');
+const { randomBytes, createCipheriv, createDecipheriv, createHmac } = require('node:crypto');
 
-// The installation key stays outside SQLite. Only encrypted credentials enter the DB.
+// The installation key stays outside the database. AES-GCM binds each field to its owner.
 function createCredentialVault(keyPath) {
   let key;
   function installationKey() {
     if (key) return key;
     if (!keyPath) return (key = randomBytes(32));
-    try {
-      const fd = fs.openSync(keyPath, 'wx', 0o600);
-      try { fs.writeFileSync(fd, randomBytes(32)); } finally { fs.closeSync(fd); }
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw new Error('Impossibile creare la chiave di protezione locale.');
+    if (!fs.existsSync(keyPath)) {
+      try {
+        const fd = fs.openSync(keyPath, 'wx', 0o600);
+        try { fs.writeFileSync(fd, randomBytes(32)); } finally { fs.closeSync(fd); }
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw new Error('Impossibile creare la chiave di protezione locale.');
+      }
     }
     key = fs.readFileSync(keyPath);
     if (key.length !== 32) throw new Error('Chiave di protezione locale non valida.');
-    fs.chmodSync(keyPath, 0o600);
     return key;
   }
   return {
+    fingerprint(value, purpose) {
+      return createHmac('sha256', installationKey()).update(`${purpose}\0${value}`).digest('hex');
+    },
     encrypt(value, profileId) {
       const iv = randomBytes(12);
       const cipher = createCipheriv('aes-256-gcm', installationKey(), iv);

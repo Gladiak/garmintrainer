@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.local-keys
+*.git-crypt.key
+.git-crypt
+.githooks
+data
+coverage
+.postman
+*.log

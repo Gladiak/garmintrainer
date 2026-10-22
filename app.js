@@ -3,38 +3,39 @@
 const path = require("node:path");
 const express = require("express");
 const { readConfig } = require("./libs/config");
-const { createGarminProfileManager, getGarminProfileManager, GarminApiError } = require("./libs/garmin");
+const { createGarminProfileManager, GarminApiError } = require("./libs/garmin");
 const { createGarminAuthRouter } = require("./routes/garmin-auth");
-const { getDatabase, InputError } = require("./libs/database");
+const { InputError } = require("./libs/validation");
+const { getMariaDatabase, initializeDatabase } = require("./libs/mariadb");
+const { createAuthentication } = require("./libs/auth");
 const { createDashboardRouter } = require("./routes/dashboard");
 const { createProfilesRouter } = require("./routes/profiles");
-const { migrateLegacyCredentials } = require("./libs/legacy-credentials");
 
-function createApp({ garminManager, databaseProvider = getDatabase } = {}) {
-  const garmin = garminManager || (databaseProvider === getDatabase ? getGarminProfileManager() : createGarminProfileManager({ databaseProvider }));
-  const requireProfile = (req, res, next) => {
-    const id = req.get("X-Profile-Id");
-    if (!id) throw new InputError("Seleziona un profilo locale.", 409, "PROFILE_REQUIRED");
-    req.profile = databaseProvider().getProfile(id);
-    next();
-  };
+function createApp({ garminManager, databaseProvider = getMariaDatabase, config = readConfig() } = {}) {
+  const garmin = garminManager || createGarminProfileManager({ databaseProvider, config: config.garmin });
+  const auth = createAuthentication({ getDatabase: databaseProvider, cookieSecure: config.cookieSecure, allowedOrigins: config.allowedOrigins });
   const app = express();
   app.disable("x-powered-by");
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
+    res.set("X-Content-Type-Options", "nosniff");
     next();
   });
-  app.use("/api/profiles", express.json({ limit: "7mb" }));
+  app.use("/api", auth.sameOrigin);
+  app.use("/api/profile", express.json({ limit: "7mb" }));
   app.use(express.json({ limit: "32kb" }));
   app.locals.garmin = garmin;
 
-  app.get("/health", (req, res) => {
+  app.get("/health", async (req, res) => {
+    await databaseProvider().ready?.();
     res.json({ status: "ok", service: "garmintrainer" });
   });
 
-  app.use("/api/profiles", createProfilesRouter({ garmin, getDatabase: databaseProvider }));
-  app.use("/api/garmin/auth", createGarminAuthRouter(garmin, requireProfile, databaseProvider));
-  app.use("/api", createDashboardRouter({ garmin, getDatabase: databaseProvider, requireProfile }));
+  app.use("/api/auth", auth.router);
+  app.use("/api", auth.requireUser);
+  app.use("/api/profile", createProfilesRouter({ garmin, getDatabase: databaseProvider }));
+  app.use("/api/garmin/auth", createGarminAuthRouter(garmin, databaseProvider));
+  app.use("/api", createDashboardRouter({ garmin, getDatabase: databaseProvider }));
   app.use(express.static(path.join(__dirname, "dist")));
 
   app.use((req, res) => {
@@ -78,26 +79,20 @@ function createApp({ garminManager, databaseProvider = getDatabase } = {}) {
   return app;
 }
 
-function startServer() {
-  require("dotenv").config({ path: path.join(__dirname, ".env"), quiet: true });
+async function startServer() {
   const config = readConfig();
-  const database = getDatabase();
-  // A test or secondary installation with a different DB must never claim the main .env key.
-  if (config.databasePath === path.join(__dirname, "db", "garmintrainer.sqlite")) {
-    migrateLegacyCredentials(database, path.join(__dirname, ".env"));
-  }
-  delete process.env.GARMIN_API_KEY;
-  delete process.env.GARMIN_PERSONAL_API_KEY;
-  const server = createApp().listen(config.port, config.host, () => {
+  const database = await initializeDatabase(config);
+  const server = createApp({ config }).listen(config.port, config.host, () => {
     console.log(
       `Garmin Trainer disponibile su http://${config.host}:${config.port}`,
     );
   });
-  server.on("error", (error) => {
+  server.on("error", async (error) => {
     console.error(
       `Avvio del server non riuscito (${error.code || "SERVER_ERROR"}).`,
     );
     process.exitCode = 1;
+    await database.close();
   });
   const shutdown = () => server.close(() => database.close());
   process.once("SIGINT", shutdown);
@@ -106,12 +101,10 @@ function startServer() {
 }
 
 if (require.main === module) {
-  try {
-    startServer();
-  } catch (error) {
-    console.error(error.message);
+  startServer().catch((error) => {
+    console.error(`Avvio non riuscito (${error.code || 'CONFIG_ERROR'}). Verifica MariaDB e la chiave di cifratura locale.`);
     process.exitCode = 1;
-  }
+  });
 }
 
 module.exports = { createApp, startServer };

@@ -1,0 +1,72 @@
+name: garmintrainer
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: garmintrainer
+      MARIADB_USER: garmintrainer
+      MARIADB_PASSWORD_FILE: /run/secrets/db_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+  app:
+    build:
+      context: .
+      target: runtime
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: garmintrainer
+      DB_USER: garmintrainer
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      ENCRYPTION_KEY_PATH: /run/secrets/encryption_key
+      COOKIE_SECURE: "false"
+    secrets:
+      - db_password
+      - encryption_key
+    ports:
+      - "127.0.0.1:8080:3000"
+  test:
+    profiles: [test]
+    build:
+      context: .
+      target: development
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: garmintrainer
+      DB_USER: root
+      DB_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets:
+      - db_root_password
+    command: ["node", "--test", "test/mariadb.integration.js"]
+secrets:
+  db_password:
+    file: ./data/secrets/db_password
+  db_root_password:
+    file: ./data/secrets/db_root_password
+  encryption_key:
+    file: ./data/encryption.key
+volumes:
+  mariadb_data:

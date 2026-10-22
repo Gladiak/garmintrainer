@@ -2840,15 +2840,6 @@ h1 > span {
   flex-shrink: 0;
   margin-top: 2px;
 }
-.profile-migration-note {
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--mist-soft);
-  font-size: 12px;
-  color: var(--ink);
-  line-height: 1.6;
-  margin: 0;
-}
 @media (max-width: 540px) {
   .profile-switcher {
     flex-wrap: wrap;
@@ -2966,8 +2957,7 @@ h1 > span {
   color: var(--danger) !important;
 }
 .data-notice,
-.profile-banner,
-.profile-migration-note {
+.profile-banner {
   background: var(--mist-soft);
   color: var(--text-muted);
 }
@@ -3565,6 +3555,69 @@ textarea:focus-visible {
 .sidebar-profile {
   flex-shrink: 0;
 }
+.sidebar-account {
+  position: relative;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.sidebar-account .sidebar-profile {
+  margin-top: 0;
+  border-top: 1px solid var(--border);
+}
+.sidebar-account .sidebar-profile:hover,
+.sidebar-account .sidebar-profile[aria-expanded="true"] {
+  background: var(--moss-soft);
+}
+.sidebar-account .sidebar-profile:focus-visible,
+.sidebar-account-menu button:focus-visible {
+  outline: 2px solid var(--sage-strong);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.sidebar-account-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  inset-inline: 0;
+  z-index: 1;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.sidebar-account-menu button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.sidebar-account-menu button:hover,
+.sidebar-account-menu button:focus {
+  background: var(--moss-soft);
+}
+.sidebar-account-menu button svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.sidebar-account-menu-divider {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--border);
+}
+.account-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.account-chevron.is-open {
+  transform: rotate(180deg);
+}
 .brand-mark {
   color: var(--on-accent);
 }
@@ -3820,4 +3873,33 @@ h1 > span,
 }
 .training-load-details tbody th {
   font-weight: 400;
+}
+/* Account access shares the dashboard's typography, surfaces and accents. */
+.auth-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(320px, 1fr) minmax(420px, 1fr); background: var(--surface, #fff); }
+.auth-story { padding: clamp(32px, 6vw, 96px); display: flex; flex-direction: column; justify-content: space-between; gap: 64px; background: var(--mist-soft, #f5f5f5); }
+.auth-story h1 { font-size: clamp(40px, 4.5vw, 68px); max-width: 580px; line-height: 1.08; letter-spacing: -2.5px; margin: 22px 0; }
+.auth-story p { max-width: 440px; color: var(--text-muted, #666); line-height: 1.8; }
+.auth-privacy { display: flex; gap: 12px; align-items: center; font-size: 13px; }
+.auth-privacy svg { flex-shrink: 0; }
+.auth-panel { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 100px 48px 48px; }
+.auth-language { position: absolute; top: 28px; right: 32px; display: flex; align-items: center; gap: 12px; color: var(--text-muted, #666); font-size: 12px; }
+.auth-language select { border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 8px 12px; background: var(--surface, #fff); color: inherit; font: inherit; }
+.auth-card { width: 100%; max-width: 420px; margin: auto; }
+.auth-card h2 { font-size: 32px; letter-spacing: -1px; margin: 14px 0 10px; }
+.auth-card > p:not(.eyebrow) { color: var(--text-muted, #666); line-height: 1.7; font-size: 14px; }
+.auth-card form { margin-top: 28px; }
+.auth-card fieldset { display: grid; gap: 18px; }
+.auth-card .credential-help { margin-top: -10px; }
+.auth-submit { width: 100%; justify-content: center; margin-top: 22px; min-height: 46px; }
+.auth-switch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.auth-loading { min-height: 100dvh; display: flex; gap: 16px; align-items: center; justify-content: center; flex-direction: column; }
+@media (max-width: 780px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .auth-story { padding: 28px; gap: 28px; }
+  .auth-story h1 { font-size: 36px; margin: 12px 0; letter-spacing: -1.5px; }
+  .auth-story .auth-privacy { display: none; }
+  .auth-story > div { max-width: 560px; }
+  .auth-story p { margin-bottom: 0; }
+  .auth-panel { padding: 84px 28px 36px; }
+  .auth-language { top: 20px; right: 28px; }
 }

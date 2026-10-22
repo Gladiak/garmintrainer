@@ -1,52 +1,121 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Garmin Personal API — contratto minimo per test locali",
+    "title": "Garmin Personal API \u2014 contratto minimo per test locali",
     "version": "1.0.0",
     "description": "Sottoinsieme basato sulle istruzioni Garmin Personal e sul client Python ufficiale. I token, i profili e gli errori della simulazione sono sintetici; nessuna credenziale reale. Fonti: https://developer.garmin.com/gc-developer-program/personal/personal-api/ e https://github.com/garmin/connect-personal-api-python."
   },
-  "servers": [{ "url": "https://personal.connectapi.garmin.com" }],
+  "servers": [
+    {
+      "url": "https://personal.connectapi.garmin.com"
+    }
+  ],
   "paths": {
     "/personalapitoken-service/personal-api/personal-api-key/token": {
       "post": {
-        "description": "Senza corpo. Authorization: ApiKey <chiave personale>. La risposta è un JWT testuale, non un oggetto JSON OAuth.",
-        "security": [{ "PersonalKey": [] }],
+        "description": "Senza corpo. Authorization: ApiKey <chiave personale>. La risposta \u00e8 un JWT testuale, non un oggetto JSON OAuth.",
+        "security": [
+          {
+            "PersonalKey": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "JWT testuale con claim exp",
-            "content": { "text/plain": { "schema": { "type": "string" } } }
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "401": { "description": "Simulazione di chiave non valida" },
-          "403": { "description": "Simulazione di accesso non consentito" },
-          "500": { "description": "Simulazione di errore del provider" }
-        }
+          "401": {
+            "description": "User session missing or expired."
+          },
+          "403": {
+            "description": "Invalid CSRF token or cross-origin request."
+          },
+          "500": {
+            "description": "Simulazione di errore del provider"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CSRF token returned by /api/auth/session."
+          }
+        ]
       }
     },
     "/userprofile-service/userprofile/settings": {
       "get": {
-        "description": "Lettura usata solo nei test per esercitare la gestione automatica del Bearer token. Non è pubblicata come endpoint dell'app.",
-        "security": [{ "BearerToken": [] }],
+        "description": "Lettura usata solo nei test per esercitare la gestione automatica del Bearer token. Non \u00e8 pubblicata come endpoint dell'app.",
+        "security": [
+          {
+            "BearerToken": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Impostazioni del profilo",
             "content": {
               "application/json": {
-                "schema": { "type": "object", "properties": { "timeZone": { "type": "string" } } },
-                "example": { "timeZone": "Europe/Rome" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timeZone": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "timeZone": "Europe/Rome"
+                }
               }
             }
           },
-          "401": { "description": "Simulazione di token rifiutato o revocato" },
-          "403": { "description": "Simulazione di risorsa non autorizzata" },
-          "500": { "description": "Simulazione di errore del provider" }
+          "401": {
+            "description": "User session missing or expired."
+          },
+          "403": {
+            "description": "Simulazione di risorsa non autorizzata"
+          },
+          "500": {
+            "description": "Simulazione di errore del provider"
+          }
         }
       }
     }
   },
   "components": {
     "securitySchemes": {
-      "PersonalKey": { "type": "apiKey", "in": "header", "name": "Authorization", "description": "Usare il prefisso ApiKey seguito dalla chiave" },
-      "BearerToken": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+      "PersonalKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Usare il prefisso ApiKey seguito dalla chiave"
+      },
+      "BearerToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "garmintrainer_session"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ]
 }

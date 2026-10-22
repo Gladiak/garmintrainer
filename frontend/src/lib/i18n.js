@@ -58,7 +58,7 @@ export function cachedProfileLanguage() {
   } catch { return DEFAULT_LANGUAGE; }
 }
 
-export const i18n = createI18n(cachedProfileLanguage());
+export const i18n = createI18n(DEFAULT_LANGUAGE);
 export const getLanguage = i18n.getLanguage;
 export const setLanguage = i18n.setLanguage;
 export const t = i18n.t;

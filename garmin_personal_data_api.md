@@ -324,46 +324,70 @@ Non creare URL per analogia con API Garmin interne o librerie non ufficiali. Un 
 
 ## 8. Backend Express e libreria condivisa implementati
 
-Il backend di base è ora implementato in `app.js`, con configurazione in `libs/config.js`, client condiviso in `libs/garmin.js` e route di autenticazione in `routes/garmin-auth.js`. Ogni modulo deve usare `getGarminClient(profileId)` per ottenere l’istanza condivisa di quello specifico profilo, con cache del token separata. Le istruzioni complete sono nel [README del progetto](README.md).
+Il backend è implementato in `app.js`, con configurazione Docker in `compose.yaml`,
+client condiviso in `libs/garmin.js` e route Garmin in `routes/garmin-auth.js`.
+L'applicazione usa esclusivamente MariaDB. Le impostazioni vengono passate ai
+container da Compose; password del database e chiave di cifratura sono montate
+come Docker secrets. Le istruzioni complete sono nel [README](README.md).
 
-Nome, cognome, sport principale (corsa, bici, nuoto, palestra, HIIT) e chiave API personale si gestiscono nel popup **Profili e Garmin**. Le chiavi sono cifrate nel database locale; `.env` contiene soltanto impostazioni dell’installazione. La configurazione precedente viene migrata al profilo iniziale, da completare, e la chiave viene rimossa da `.env` dopo il salvataggio. Le sessioni del piano sono separate per profilo. Avvio:
+Ogni utente si registra con nome utente, email e password e possiede un solo
+profilo. Il popup al primo accesso permette di salvare nome, cognome, lingua,
+sport principale, foto e API key Garmin. I dati personali e la chiave Garmin
+sono cifrati in MariaDB; le password utente sono protette con hash scrypt.
+
+Avvio:
 
 ```bash
-npm start
+npm run docker:up
 ```
 
-Il server ascolta per default su `http://127.0.0.1:3000` e mette a disposizione:
+L'interfaccia è disponibile su `http://127.0.0.1:8080`.
 
 | Metodo e percorso | Funzione |
 | --- | --- |
-| `GET /health` | Stato del processo; non chiama Garmin |
-| `GET /api/profiles` | Elenco dei profili senza credenziali |
-| `POST /api/profiles` | Crea un profilo locale |
-| `PATCH /api/profiles/:id` | Aggiorna dati e chiave del profilo |
-| `GET /api/garmin/auth/status` | Stato locale della configurazione e della cache |
-| `POST /api/garmin/auth/ensure` | Ottiene, riusa o rinnova il token e restituisce soltanto metadati |
+| `GET /health` | Verifica backend e database senza chiamare Garmin |
+| `POST /api/auth/register` | Registra un account con il proprio profilo |
+| `POST /api/auth/login` | Apre una sessione utente |
+| `GET /api/auth/session` | Restituisce account e profilo correnti |
+| `POST /api/auth/logout` | Revoca la sessione corrente |
+| `GET /api/profile` | Restituisce il proprio profilo senza credenziali |
+| `PATCH /api/profile` | Aggiorna dati e chiave del proprio profilo |
+| `GET /api/garmin/auth/status` | Stato della configurazione e della cache Garmin |
+| `POST /api/garmin/auth/ensure` | Ottiene, riusa o rinnova il token; restituisce solo metadati |
 
-Le richieste per autenticazione e sessioni usano `X-Profile-Id` per indicare il profilo. Chiave salvata e token non sono restituiti attraverso HTTP. In modifica, `apiKey` omessa o vuota conserva la chiave e `null` la rimuove; una sostituzione invalida soltanto la cache di quel profilo. `configured` indica la presenza della chiave, mentre `valid` indica che il token in cache non è scaduto secondo l'orologio locale; non sono una verifica remota della mancata revoca.
+Il cookie di sessione identifica l'utente; le scritture richiedono il token CSRF.
+Il server ricava il profilo dall'account autenticato. Chiave e bearer token non
+vengono restituiti tramite HTTP. Una `apiKey` omessa o vuota conserva quella
+salvata; `null` la rimuove. La sostituzione invalida la cache del solo account.
 
-Per i futuri moduli backend:
+Ogni modulo backend deve ottenere il client condiviso in modo asincrono:
 
 ```javascript
 const { getGarminClient } = require('./libs/garmin');
 
 async function readDailyHrv(profileId, calendarDate) {
-  return getGarminClient(profileId).get(
-    `/hrv-service/hrv/${calendarDate}`,
-  );
+  const client = await getGarminClient(profileId);
+  return client.get(`/hrv-service/hrv/${calendarDate}`);
 }
 ```
 
-Questo è un esempio d'uso interno: l'app non pubblica ancora endpoint per HRV, attività o altre misure. I moduli che accettano date dall'interfaccia dovranno validarle prima di usarle.
+È un esempio interno: l'app non pubblica ancora endpoint per HRV, attività o altre
+misure. Le date ricevute dall'interfaccia devono essere validate prima dell'uso.
 
-Il client mantiene una cache in memoria e rinnova il token alla prima richiesta utile quando entra nel margine preventivo, di default 60 secondi, oppure è scaduto. Per token brevi il margine è ridotto al massimo al 10% della validità residua all'emissione. Le chiamate concorrenti condividono un'unica emissione. Dopo un `401` di una lettura, ottiene un nuovo token e ripete la lettura una sola volta; ulteriori rifiuti diventano errori espliciti. Gli errori del client HTTP vengono tradotti senza esporre header, credenziali o corpo originale della risposta.
+La cache resta in memoria e rinnova il token alla prima richiesta utile quando
+è scaduto o entra nel margine preventivo (60 secondi, ridotti per token brevi).
+Le chiamate concorrenti condividono un'unica emissione. Un `401` di una lettura
+produce un solo rinnovo e un solo tentativo aggiuntivo. Gli errori non espongono
+header, credenziali o il corpo originale della risposta. La decodifica di `exp`
+serve esclusivamente a gestire la scadenza del token ricevuto via HTTPS;
+`valid` non dimostra che Garmin non abbia revocato il token.
 
-Il rinnovo non usa timer in background né refresh token. Dopo il riavvio si ottiene un nuovo bearer token dalla chiave personale. Il database locale `db/garmintrainer.sqlite` salva profili, chiavi personali cifrate e sessioni del piano; non contiene ancora misure Garmin importate. Il file `db/garmintrainer.sqlite.key` protegge le credenziali e deve essere incluso in un backup riservato per consentirne il ripristino. I profili sono spazi locali selezionabili, senza login individuale. La decodifica di `exp` è usata esclusivamente per la gestione della scadenza del token ricevuto via HTTPS.
-
-La verifica locale comprende test di autenticazione, API, persistenza SQLite, migrazione e isolamento tra profili, oltre a una prova Express tramite simulazione Postman del percorso emissione → lettura rifiutata → nuova emissione → lettura riuscita. Nessuna richiesta di test usa l'account Garmin reale.
+Dopo un riavvio il backend recupera la chiave cifrata da MariaDB e ottiene un
+nuovo token quando necessario. Fare backup del database insieme ai file in
+`data/secrets/` e a `data/encryption.key`. Le misure Garmin non vengono ancora
+importate. I test rapidi usano account sintetici e un provider HTTP locale;
+le prove di persistenza, cifratura e isolamento usano MariaDB reale in Docker.
+Nessuna prova automatica contatta l'account Garmin reale.
 
 ## 9. Architettura proposta: dati Garmin e piano interno
 

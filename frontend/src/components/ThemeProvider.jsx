@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react';
-import { applyTheme, cachedProfileTheme, getTheme } from '../lib/palette';
+import { applyTheme, getTheme } from '../lib/palette';
 
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [savedTheme, setSavedTheme] = useState(() => cachedProfileTheme().id);
+  const [savedTheme, setSavedTheme] = useState(() => getTheme().id);
   const [preview, setPreview] = useState(null);
   const theme = getTheme(preview || savedTheme);
   const setProfileTheme = useCallback((id, profileId) => {

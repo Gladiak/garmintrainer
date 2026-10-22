@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { createApp } = require('../app');
 const { createGarminProfileManager } = require('../libs/garmin');
-const { createDatabase } = require('../libs/database');
+const { accountDatabase } = require('./helpers');
 const { TEST_API_KEY, PROFILE_PATH } = require('../postman/mocks/garmin/default');
 
 async function main() {
@@ -15,17 +15,22 @@ async function main() {
     body: JSON.stringify({ reset: true, rejectFirstToken: true }),
   });
   assert.equal(reset.status, 200);
-  const database = createDatabase(':memory:');
-  const profile = database.createProfile({ firstName: 'Test', lastName: 'Simulazione', primarySport: 'running', apiKey: TEST_API_KEY });
+  const database = accountDatabase({ after() {} });
+  const user = database.createUser({ username: 'simulation', email: 'simulation@example.test', passwordHash: 'unused' });
+  const profile = database.updateProfile(database.getUserProfile(user.id).id, { firstName: 'Test', lastName: 'Simulazione', primarySport: 'running', apiKey: TEST_API_KEY });
+  const { randomBytes, createHash } = require('node:crypto');
+  const token = randomBytes(32).toString('base64url');
+  const csrfToken = randomBytes(32).toString('base64url');
+  database.createAuthSession({ tokenHash: createHash('sha256').update(token).digest('hex'), userId: user.id, csrfToken, expiresAt: Date.now() + 60000 });
   const manager = createGarminProfileManager({ databaseProvider: () => database, config: { baseUrl } });
-  const client = manager.getClient(profile.id);
+  const client = (await manager.getClient(profile.id));
   const server = createApp({ garminManager: manager, databaseProvider: () => database }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   console.log(`Express in ascolto sulla porta di test ${server.address().port}`);
   try {
     const origin = `http://127.0.0.1:${server.address().port}/api`;
     const request = async (path, { method, profileId } = {}) => {
-      const response = await fetch(`${origin}${path}`, { method, headers: { 'X-Profile-Id': profileId } });
+      const response = await fetch(`${origin}${path}`, { method, headers: { Cookie: `garmintrainer_session=${token}`, 'X-CSRF-Token': csrfToken } });
       assert.equal(response.status, 200);
       return response.json();
     };

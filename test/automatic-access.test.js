@@ -2,32 +2,31 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDatabase } = require('../libs/database');
-const { createGarminProfileManager } = require('../libs/garmin');
-const { createApp } = require('../app');
-const { setup, listen, TEST_API_KEY } = require('./helpers');
+const { accountApplication, TEST_API_KEY } = require('./helpers');
 
 const values = { firstName: 'Test', lastName: 'Automatico', primarySport: 'running' };
 
 async function fixture(t, mockOptions = {}) {
   const { prepareProfileAccess } = await import('../frontend/src/lib/garmin-access.js');
-  const provider = await setup(t, mockOptions);
-  const db = createDatabase(':memory:'); t.after(() => db.close());
-  const manager = createGarminProfileManager({ databaseProvider: () => db, config: { baseUrl: provider.baseUrl } });
-  const base = await listen(t, createApp({ databaseProvider: () => db, garminManager: manager }));
+  const app = await accountApplication(t, mockOptions);
+  const actors = new Map();
+  async function createProfile(values) {
+    const actor = await app.register(values); actors.set(actor.profile.id, actor); return actor.profile;
+  }
   const request = async (path, { profileId, method, signal } = {}) => {
-    const response = await fetch(`${base}/api${path}`, { method, signal, headers: profileId ? { 'X-Profile-Id': profileId } : {} });
+    const actor = actors.get(profileId) || actors.values().next().value;
+    const response = await fetch(`${app.base}/api${path}`, { method, signal, headers: actor?.headers || {} });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error.message);
     return result;
   };
   const run = (options) => prepareProfileAccess({ request, isCurrent: () => true, ...options });
-  return { provider, db, manager, request, run };
+  return { provider: app.provider, db: app.database, manager: app.manager, createProfile, request, run };
 }
 
 test('avvio automatico via HTTP: token pronto, cache riusata, nessuna chiave nel risultato', async (t) => {
-  const { provider, db, request, run } = await fixture(t);
-  const p = db.createProfile({ ...values, apiKey: TEST_API_KEY });
+  const { provider, db, createProfile, request, run } = await fixture(t);
+  const p = await createProfile({ ...values, apiKey: TEST_API_KEY });
   const initial = await request('/dashboard', { profileId: p.id });
   const states = [];
   await run({ profileId: p.id, status: initial.garmin, onChange: (state) => states.push(state) });
@@ -41,8 +40,8 @@ test('avvio automatico via HTTP: token pronto, cache riusata, nessuna chiave nel
 });
 
 test('profili senza chiave o senza selezione non emettono richieste Garmin', async (t) => {
-  const { provider, db, request, run } = await fixture(t);
-  const p = db.createProfile(values);
+  const { provider, db, createProfile, request, run } = await fixture(t);
+  const p = await createProfile(values);
   for (const profileId of [null, p.id]) {
     const data = await request('/dashboard', { profileId });
     await run({ profileId, status: data.garmin, onChange: () => assert.fail('Il piano locale non richiede attivazione') });
@@ -51,8 +50,8 @@ test('profili senza chiave o senza selezione non emettono richieste Garmin', asy
 });
 
 test('chiave rifiutata: errore separato, piano e profilo salvati, retry solo alla richiesta successiva', async (t) => {
-  const { provider, db, request, run } = await fixture(t, { tokenStatus: 401 });
-  const p = db.createProfile({ ...values, apiKey: TEST_API_KEY });
+  const { provider, db, createProfile, request, run } = await fixture(t, { tokenStatus: 401 });
+  const p = await createProfile({ ...values, apiKey: TEST_API_KEY });
   db.createSession(p.id, { title: 'Corsa locale', sport: 'running', date: '2026-10-22', durationMinutes: 30 });
   const data = await request('/dashboard', { profileId: p.id });
   const states = [];
@@ -69,17 +68,17 @@ test('chiave rifiutata: errore separato, piano e profilo salvati, retry solo all
 });
 
 test('token da rinnovare e accessi concorrenti condividono la richiesta del backend', async (t) => {
-  const { provider, db, manager, run } = await fixture(t, { tokenDelayMs: 25 });
-  const p = db.createProfile({ ...values, apiKey: TEST_API_KEY });
+  const { provider, db, createProfile, manager, run } = await fixture(t, { tokenDelayMs: 25 });
+  const p = await createProfile({ ...values, apiKey: TEST_API_KEY });
   // A status snapshot can be valid while already within the renewal window.
   await Promise.all(Array.from({ length: 3 }, () => run({ profileId: p.id, status: { configured: true, valid: true, refreshRequired: true }, onChange: () => {} })));
-  assert.equal(provider.state.tokenRequests, 1); assert.equal(manager.getClient(p.id).getTokenStatus().valid, true);
+  assert.equal(provider.state.tokenRequests, 1); assert.equal((await manager.getClient(p.id)).getTokenStatus().valid, true);
 });
 
-test('cambio profilo: la risposta tardiva non sovrascrive lo stato del nuovo profilo', async (t) => {
-  const { provider, db, request, run } = await fixture(t, { tokenDelayMs: 40 });
-  const a = db.createProfile({ ...values, apiKey: TEST_API_KEY });
-  const b = db.createProfile({ ...values, firstName: 'Altro' });
+test('cambio account: la risposta tardiva non sovrascrive lo stato del nuovo profilo', async (t) => {
+  const { provider, db, createProfile, request, run } = await fixture(t, { tokenDelayMs: 40 });
+  const a = await createProfile({ ...values, apiKey: TEST_API_KEY });
+  const b = await createProfile({ ...values, firstName: 'Altro' });
   let selected = a.id;
   const states = [];
   const pending = run({ profileId: a.id, status: { configured: true, valid: false }, isCurrent: () => selected === a.id, onChange: (state) => states.push(state) });
@@ -93,8 +92,8 @@ test('cambio profilo: la risposta tardiva non sovrascrive lo stato del nuovo pro
 });
 
 test('richiesta annullata non pubblica errori o stato del profilo precedente', async (t) => {
-  const { provider, db, run } = await fixture(t, { tokenDelayMs: 40 });
-  const p = db.createProfile({ ...values, apiKey: TEST_API_KEY });
+  const { provider, db, createProfile, run } = await fixture(t, { tokenDelayMs: 40 });
+  const p = await createProfile({ ...values, apiKey: TEST_API_KEY });
   const controller = new AbortController();
   const states = [];
   const pending = run({ profileId: p.id, status: { configured: true, valid: false }, signal: controller.signal, onChange: state => states.push(state) });

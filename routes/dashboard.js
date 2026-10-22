@@ -1,28 +1,40 @@
-'use strict';
+"use strict";
 
-const { Router } = require('express');
+const { Router } = require("express");
 
-function createDashboardRouter({ garmin, getDatabase, requireProfile }) {
+function createDashboardRouter({ garmin, getDatabase }) {
   const router = Router();
-  router.get('/dashboard', (req, res) => {
+  router.get("/dashboard", async (req, res) => {
     const database = getDatabase();
-    const profileId = req.get('X-Profile-Id');
-    const profile = profileId ? database.getProfile(profileId) : null;
+    const profile = req.profile;
+    const client = await garmin.getClient(profile.id);
     res.json({
-      profiles: database.listProfiles(), profile,
-      garmin: profile ? garmin.getClient(profile.id).getTokenStatus() : null,
-      storage: { ready: true, type: 'sqlite' },
-      measurements: { state: 'not_imported', lastSyncAt: null, daily: [] },
-      sessions: profile ? database.listSessions(profile.id) : [],
+      profile,
+      garmin: client.getTokenStatus(),
+      storage: { ready: true, type: "mariadb" },
+      measurements: { state: "not_imported", lastSyncAt: null, daily: [] },
+      sessions: await database.listSessions(profile.id),
     });
   });
-  router.get('/sessions', requireProfile, (req, res) => res.json({ sessions: getDatabase().listSessions(req.profile.id) }));
-  router.post('/sessions', requireProfile, (req, res) => res.status(201).json(getDatabase().createSession(req.profile.id, req.body)));
-  router.patch('/sessions/:id', requireProfile, (req, res) => {
-    res.json(getDatabase().setSessionStatus(req.profile.id, req.params.id, req.body?.status));
+  router.get("/sessions", async (req, res) =>
+    res.json({ sessions: await getDatabase().listSessions(req.profile.id) }),
+  );
+  router.post("/sessions", async (req, res) =>
+    res
+      .status(201)
+      .json(await getDatabase().createSession(req.profile.id, req.body)),
+  );
+  router.patch("/sessions/:id", async (req, res) => {
+    res.json(
+      await getDatabase().setSessionStatus(
+        req.profile.id,
+        req.params.id,
+        req.body?.status,
+      ),
+    );
   });
-  router.delete('/sessions/:id', requireProfile, (req, res) => {
-    getDatabase().deleteSession(req.profile.id, req.params.id);
+  router.delete("/sessions/:id", async (req, res) => {
+    await getDatabase().deleteSession(req.profile.id, req.params.id);
     res.status(204).end();
   });
   return router;

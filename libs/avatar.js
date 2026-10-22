@@ -1,7 +1,7 @@
 'use strict';
 
 const sharp = require('sharp');
-const { InputError } = require('./database');
+const { InputError } = require('./validation');
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const FORMATS = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' };

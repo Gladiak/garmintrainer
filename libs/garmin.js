@@ -189,15 +189,17 @@ function createGarminClient({
 function createGarminProfileManager({ databaseProvider, config = readConfig().garmin } = {}) {
   const clients = new Map();
   return {
-    getClient(profileId) {
+    async getClient(profileId) {
       const database = databaseProvider();
-      const profile = database.getProfile(profileId);
-      const cached = clients.get(profileId);
-      if (cached?.revision === profile.credentialRevision) return cached.client;
-      const credential = database.getGarminCredential(profileId);
-      const client = createGarminClient({ ...config, apiKey: credential.apiKey });
-      clients.set(profileId, { revision: credential.revision, client });
-      return client;
+      function fromCredential(credential) {
+        const cached = clients.get(profileId);
+        if (cached?.revision === credential.revision) return cached.client;
+        const client = createGarminClient({ ...config, apiKey: credential.apiKey });
+        clients.set(profileId, { revision: credential.revision, client });
+        return client;
+      }
+      const credential = await database.getGarminCredential(profileId);
+      return fromCredential(credential);
     },
     invalidate(profileId) { clients.delete(profileId); },
   };
@@ -205,7 +207,7 @@ function createGarminProfileManager({ databaseProvider, config = readConfig().ga
 
 let sharedManager;
 function getGarminProfileManager() {
-  if (!sharedManager) sharedManager = createGarminProfileManager({ databaseProvider: require('./database').getDatabase });
+  if (!sharedManager) sharedManager = createGarminProfileManager({ databaseProvider: require('./mariadb').getMariaDatabase });
   return sharedManager;
 }
 function getGarminClient(profileId) { return getGarminProfileManager().getClient(profileId); }

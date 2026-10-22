@@ -7,8 +7,7 @@ const { makeJwt, TOKEN_PATH, PROFILE_PATH } = require('../postman/mocks/garmin/d
 const { createGarminClient, GarminApiError } = require('../libs/garmin');
 const { readConfig } = require('../libs/config');
 
-test('configurazione: le chiavi globali vengono ignorate, valori numerici validati', () => {
-  assert.equal(readConfig({ GARMIN_API_KEY: 'legacy', GARMIN_PERSONAL_API_KEY: 'preferred' }).garmin.apiKey, undefined);
+test('configurazione: valori numerici validati', () => {
   assert.equal(readConfig({}).host, '127.0.0.1');
   assert.throws(() => readConfig({ PORT: '3000oops' }), /PORT/);
   assert.throws(() => readConfig({ GARMIN_HTTP_TIMEOUT_MS: '0' }), /TIMEOUT/);

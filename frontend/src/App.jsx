@@ -5,7 +5,7 @@ import {
   Activity, ArrowRight, ArrowUpRight, BatteryCharging, Bike, CalendarDays,
   Check, ChevronLeft, ChevronRight, CircleCheck, Clock3, Dumbbell, Footprints,
   HeartPulse, Info, LayoutDashboard, Link2, LoaderCircle, Menu, Moon,
-  Plus, RefreshCw, Settings2, ShieldCheck, Trash2, UsersRound, ChevronsUpDown, Waves, X, Zap,
+  Plus, RefreshCw, ShieldCheck, Trash2, Waves, X, Zap,
 } from 'lucide-react';
 import { useDashboard } from './hooks/useDashboard';
 import { demoData, METRICS } from './lib/demo';
@@ -17,7 +17,7 @@ import SessionForm, { SPORT_LABELS } from './components/SessionForm';
 import Modal from './components/Modal';
 import ProfileModal, { profileName, PRIMARY_SPORT_LABELS } from './components/ProfileModal';
 import SettingsModal from './components/SettingsModal';
-import UserAvatar from './components/UserAvatar';
+import SidebarAccountMenu from './components/SidebarAccountMenu';
 import { useTheme } from './components/ThemeProvider';
 
 const SPORT_ICONS = { running: Footprints, cycling: Bike, strength: Dumbbell, walking: Footprints, mobility: Activity, swimming: Waves };
@@ -40,7 +40,7 @@ function MetricCard({ icon: Icon, label, value, unit, caption, values, tone, col
   </article>;
 }
 
-export default function App() {
+export default function App({ user, onLogout }) {
   const { t, language } = useTranslation();
   const { metricColors, sleepColors: SLEEP_COLORS, setProfileTheme } = useTheme();
   const dashboard = useDashboard();
@@ -70,7 +70,7 @@ export default function App() {
   const plannedMinutes = weeklySessions.reduce((sum, session) => sum + session.durationMinutes, 0);
   const garmin = data?.garmin;
   const garminLabel = error ? t('connection.backendUnavailable') : garminConnection.connecting ? t('connection.connectingGarmin') : garminConnection.error ? t('connection.checkGarmin') : garmin?.valid ? t('connection.garminReady') : garmin?.configured ? t('connection.garminConfigured') : t('connection.linkGarmin');
-  const profile = dashboard.profiles.find((item) => item.id === dashboard.profileId);
+  const profile = data?.profile;
   useLayoutEffect(() => {
     if (profile) setProfileTheme(profile.theme, profile.id);
     else if (!loading) setProfileTheme();
@@ -141,10 +141,11 @@ export default function App() {
         <a className={activeNav === 'plan' ? 'nav-link active' : 'nav-link'} href="#plan" onClick={() => navigate('plan')}><CalendarDays size={18} />{t('nav.plan')}<span className="nav-indicator" /></a>
       </nav>
       <div className="sidebar-divider" />
-      <button className="nav-link settings-link" onClick={() => { setProfileDialog('list'); setMenuOpen(false); }}><UsersRound size={18} />{t('nav.profiles')}</button>
-      <button className="nav-link settings-link" onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}><Settings2 size={18} />{t('nav.settings')}</button>
       <div className="sidebar-note"><span className="leaf-mark"><Activity size={23} /></span><h3>{t('nav.rhythm')}</h3><p>{t('nav.nextStep')}</p><a href="#plan" onClick={() => navigate('plan')}>{t('nav.organize')} <ArrowUpRight size={15} /></a><div className="note-orbit orbit-one" /><div className="note-orbit orbit-two" /></div>
-      <button className="sidebar-profile" aria-label={t('nav.selectProfile')} onClick={() => { setProfileDialog('list'); setMenuOpen(false); }}><UserAvatar profile={profile} className="avatar" /><div><strong>{profile ? profileName(profile) : t('nav.createProfile')}</strong><span>{t(PRIMARY_SPORT_LABELS[profile?.primarySport] || 'nav.localStorage')}</span></div><ChevronsUpDown size={17} /></button>
+      <SidebarAccountMenu profile={profile} name={profile?.firstName ? profileName(profile) : user.username} subtitle={t(PRIMARY_SPORT_LABELS[profile?.primarySport] || 'nav.localStorage')} sidebarOpen={menuOpen}
+        onProfile={() => { setProfileDialog('form'); setMenuOpen(false); }}
+        onSettings={() => { setSettingsOpen(true); setMenuOpen(false); }}
+        onLogout={async () => { try { await onLogout(); } catch (failure) { setNotice(failure); } }} />
     </aside>
 
     <div className="workspace">
@@ -199,8 +200,8 @@ export default function App() {
     </div>
     {notice && <div className="toast" role="status"><CircleCheck size={17} /><span>{messageText(notice)}</span><button className="icon-button" onClick={() => setNotice('')} aria-label={t('notices.close')}><X size={16} /></button></div>}
     {sessionForm && <SessionForm preview={demo} date={selectedDay} onClose={() => setSessionForm(false)} onSave={saveSession} />}
-    {profileDialog && <ProfileModal initialView={profileDialog} profiles={dashboard.profiles} profileId={dashboard.profileId} onClose={() => setProfileDialog(null)} onSave={async (id, values) => { await dashboard.saveProfile(id, values); setNotice({ key: 'notices.profileSaved' }); }} onSelect={dashboard.selectProfile} onDelete={async (id) => { await dashboard.deleteProfile(id); setNotice({ key: 'notices.profileDeleted' }); }} />}
-    {settingsOpen && <SettingsModal profile={profile} onClose={() => setSettingsOpen(false)} onProfiles={() => { setSettingsOpen(false); setProfileDialog('list'); }} onSave={async (id, theme) => { await dashboard.saveTheme(id, theme); setNotice({ key: 'notices.settingsSaved' }); }} />}
+    {profile && (profileDialog || profile.needsCompletion) && <ProfileModal key={profile.id} profile={profile} required={profile.needsCompletion} onClose={() => setProfileDialog(null)} onSave={async (id, values) => { await dashboard.saveProfile(id, values); setProfileDialog(null); setNotice({ key: 'notices.profileSaved' }); }} />}
+    {settingsOpen && <SettingsModal profile={profile} onClose={() => setSettingsOpen(false)} onProfiles={() => { setSettingsOpen(false); setProfileDialog('form'); }} onSave={async (id, theme) => { await dashboard.saveTheme(id, theme); setNotice({ key: 'notices.settingsSaved' }); }} />}
     {deleteTarget && <Modal title={t('session.deleteTitle')} subtitle={t(demo ? 'demo.deleteSubtitle' : 'session.deleteSubtitle', { title: deleteTarget.title })} onClose={deleting ? () => {} : () => setDeleteTarget(null)}><div className="modal-actions"><button className="button secondary" disabled={deleting} onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</button><button className="button danger" disabled={deleting} onClick={removeSession}>{deleting ? t('common.deleting') : t('session.delete')}</button></div></Modal>}
   </div>;
 }

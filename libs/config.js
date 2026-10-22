@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const fs = require('node:fs');
 const DEFAULT_BASE_URL = 'https://personal.connectapi.garmin.com';
 
 function integerSetting(env, name, fallback, min, max = Number.MAX_SAFE_INTEGER) {
@@ -17,9 +18,19 @@ function readConfig(env = process.env) {
   return {
     host: env.HOST || '127.0.0.1',
     port: integerSetting(env, 'PORT', 3000, 1, 65535),
-    databasePath: env.DATABASE_PATH
-      ? path.resolve(__dirname, '..', env.DATABASE_PATH)
-      : path.join(__dirname, '..', 'db', 'garmintrainer.sqlite'),
+    database: {
+      host: env.DB_HOST || '127.0.0.1',
+      port: integerSetting(env, 'DB_PORT', 3307, 1, 65535),
+      user: env.DB_USER || 'garmintrainer',
+      password: env.DB_PASSWORD_FILE ? fs.readFileSync(env.DB_PASSWORD_FILE, 'utf8').trimEnd() : '',
+      database: env.DB_NAME || 'garmintrainer',
+      connectionLimit: 5,
+      dateStrings: true,
+      bigIntAsNumber: true,
+    },
+    encryptionKeyPath: path.resolve(__dirname, '..', env.ENCRYPTION_KEY_PATH || 'data/encryption.key'),
+    cookieSecure: env.COOKIE_SECURE === 'true',
+    allowedOrigins: (env.ALLOWED_ORIGINS || 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173').split(',').map(value => value.trim()).filter(Boolean),
     garmin: {
       baseUrl: env.GARMIN_PERSONAL_API_BASE_URL || DEFAULT_BASE_URL,
       timeoutMs: integerSetting(env, 'GARMIN_HTTP_TIMEOUT_MS', 20_000, 1),

@@ -1,0 +1,4 @@
+# Only these installation secrets belong in Git, encrypted by git-crypt.
+/data/secrets/db_password filter=git-crypt diff=git-crypt -text
+/data/secrets/db_root_password filter=git-crypt diff=git-crypt -text
+/data/encryption.key filter=git-crypt diff=git-crypt -text

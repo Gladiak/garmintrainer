@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    command: ["npm", "run", "dev:container"]
+    ports:
+      - "127.0.0.1:5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app/frontend
+          initial_sync: true
+        - action: sync
+          path: ./langs
+          target: /app/langs
+          initial_sync: true
+        - action: sync+restart
+          path: ./libs
+          target: /app/libs
+          initial_sync: true
+        - action: sync+restart
+          path: ./routes
+          target: /app/routes
+          initial_sync: true
+        - action: sync+restart
+          path: ./app.js
+          target: /app/app.js
+          initial_sync: true
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./package-lock.json
+        - action: rebuild
+          path: ./vite.config.mjs

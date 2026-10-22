@@ -7,7 +7,7 @@ import UserAvatar from './UserAvatar';
 export const PRIMARY_SPORT_LABELS = { running: 'sports.running', cycling: 'sports.cycling', swimming: 'sports.swimming', gym: 'sports.gym', hiit: 'sports.hiit' };
 export const profileName = (profile) => [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || t('profile.incomplete');
 
-export default function ProfileForm({ profile, activeProfileId, onBack, onSave, onBusyChange }) {
+export default function ProfileForm({ profile, activeProfileId, onBack, onSave, onBusyChange, required = false }) {
   useTranslation();
   const editingId = profile?.id || null;
   const [firstName, setFirstName] = useState(profile?.firstName || '');
@@ -83,10 +83,10 @@ export default function ProfileForm({ profile, activeProfileId, onBack, onSave, 
         <p id="garmin-key-help" className="credential-help">{t('profile.keyHelp')}</p>
         {profile?.hasGarminKey && <label className="remove-key"><input type="checkbox" checked={removeKey} onChange={(event) => { setRemoveKey(event.target.checked); setApiKey(''); }} />{t('profile.removeKey')}</label>}
       </fieldset>
-      {profile?.needsCompletion && <p className="profile-migration-note">{t('profile.migrationNote')}</p>}
+
       <p className="profile-privacy"><ShieldCheck size={16} />{t('profile.privacy')}</p>
       {error && <p role="alert" className="form-error">{messageText(error)}</p>}
-      <div className="modal-actions"><button type="button" className="button secondary" disabled={locked} onClick={onBack}>{t('common.cancel')}</button><button type="submit" className="button primary" disabled={locked}>{locked && <LoaderCircle size={16} className="spin" />}{readingAvatar ? t('common.loading') : busy ? t('common.saving') : editingId ? t('profile.save') : t('page.createAction')}</button></div>
+      <div className="modal-actions">{!required && <button type="button" className="button secondary" disabled={locked} onClick={onBack}>{t('common.cancel')}</button>}<button type="submit" className="button primary" disabled={locked}>{locked && <LoaderCircle size={16} className="spin" />}{readingAvatar ? t('common.loading') : busy ? t('common.saving') : editingId ? t('profile.save') : t('page.createAction')}</button></div>
     </form>
   </>;
 }

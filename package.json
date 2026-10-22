@@ -5,13 +5,19 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "node scripts/dev.mjs",
-    "dev:server": "node --watch app.js",
-    "dev:client": "vite --config vite.config.mjs",
+    "dev": "node scripts/docker-local.mjs dev",
     "build": "vite build --config vite.config.mjs",
     "preview": "vite preview --config vite.config.mjs",
     "test": "node --test test/*.test.js",
-    "test:simulation": "node test/simulation-smoke.js"
+    "test:simulation": "node test/simulation-smoke.js",
+    "docker:up": "node scripts/docker-local.mjs up",
+    "docker:down": "node scripts/docker-local.mjs down",
+    "docker:logs": "node scripts/docker-local.mjs logs",
+    "docker:db": "node scripts/docker-local.mjs db",
+    "test:mariadb": "node scripts/docker-local.mjs test",
+    "dev:container": "node scripts/dev.mjs",
+    "secrets:check": "node scripts/check-secrets.mjs --staged",
+    "secrets:history": "node scripts/check-secrets.mjs --history"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -26,10 +32,9 @@
     "@nivo/core": "^0.99.0",
     "@nivo/line": "^0.99.0",
     "axios": "^1.20.0",
-    "better-sqlite3": "^13.0.3",
-    "dotenv": "^18.0.8",
     "express": "^5.3.0",
     "lucide-react": "^1.61.0",
+    "mariadb": "^3.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sharp": "^0.35.5"
