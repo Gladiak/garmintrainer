@@ -48,6 +48,28 @@ services:
     secrets: [db_password, encryption_key]
     networks: [web, database]
     logging: *logging
+  phpmyadmin:
+    image: phpmyadmin:5.2-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_VERBOSE: Garmin Trainer
+      PMA_ABSOLUTE_URI: https://${APP_DOMAIN:?Domain required}/phpmyadmin/
+      UPLOAD_LIMIT: 16M
+    volumes:
+      - ./phpmyadmin.php:/etc/phpmyadmin/config.user.inc.php:ro
+    networks: [web, database]
+    healthcheck:
+      test: [CMD, php, -r, "exit(@fsockopen('127.0.0.1', 80) === false ? 1 : 0);"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *logging
   proxy:
     image: caddy:2
     restart: unless-stopped

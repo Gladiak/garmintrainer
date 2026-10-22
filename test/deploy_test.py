@@ -51,6 +51,34 @@ class DeploySafetyTests(unittest.TestCase):
         self.assertEqual(env["COMPOSE_DISABLE_ENV_FILE"], "true")
         self.assertEqual(env["RELEASE_ID"], "abc")
 
+    def test_phpmyadmin_password_is_random_private_and_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "shared/secrets").mkdir(parents=True)
+            with patch.object(remote, "compose") as compose:
+                remote.provision_phpmyadmin(root, "example.org", root / "releases/abc")
+                path = root / "shared/secrets/phpmyadmin_password"
+                original = path.read_text()
+                self.assertRegex(original, r"^[A-Za-z0-9_-]{43}$")
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                args, kwargs = compose.call_args
+                self.assertNotIn(original, str(args))
+                self.assertIn("GRANT SELECT, SHOW VIEW ON garmintrainer.*", kwargs["input"])
+                self.assertIn("REVOKE ALL PRIVILEGES, GRANT OPTION", kwargs["input"])
+                self.assertNotIn("GRANT ALL", kwargs["input"])
+                remote.provision_phpmyadmin(root, "example.org", root / "releases/def")
+                self.assertEqual(path.read_text(), original)
+
+    def test_phpmyadmin_rejects_a_password_that_could_inject_sql(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "shared/secrets").mkdir(parents=True)
+            (root / "shared/secrets/phpmyadmin_password").write_text("not-a-password'; SELECT 1;")
+            with patch.object(remote, "compose") as compose:
+                with self.assertRaisesRegex(RuntimeError, "Password phpMyAdmin non valida"):
+                    remote.provision_phpmyadmin(root, "example.org", root / "releases/abc")
+                compose.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

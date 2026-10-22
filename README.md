@@ -251,6 +251,29 @@ python3 -B -m unittest discover -s test -p deploy_test.py
 node --test test/config.test.js test/proxy.test.js
 ```
 
+### Inspect the VPS database with phpMyAdmin
+
+Open [phpMyAdmin](https://garmintrainer.gladiakvps.ovh/phpmyadmin/), using the
+dedicated MariaDB username `dbviewer`. Deployment generates a random 43-character
+password once in `shared/secrets/phpmyadmin_password` on the VPS, with mode 600,
+and preserves it on updates. A local private copy is kept in
+`.local-keys/vps-phpmyadmin.txt`, excluded from Git and deployment archives.
+The password is never included in Compose, image layers or command arguments.
+
+The account can read tables/views only in `garmintrainer`; it cannot modify data,
+schema, database users or other databases. phpMyAdmin accepts only this account,
+uses cookie authentication over HTTPS and blocks root/empty-password logins.
+The container has no published port and reaches MariaDB over the private Docker
+network. Caddy serves it under `/phpmyadmin/`, so no extra DNS record is required.
+Configuration follows the [official Docker setup](https://docs.phpmyadmin.net/en/latest/setup.html#installing-using-docker)
+and [account restrictions](https://docs.phpmyadmin.net/en/latest/config.html#cfg_Servers_AllowDeny_order).
+
+Application-encrypted names, emails and credentials remain encrypted when viewed
+directly in phpMyAdmin; the application decrypts those fields when displaying them.
+Subsequent backups include the phpMyAdmin password with the other VPS secrets;
+the deploy command recreates the dedicated account and its grants when restoring
+a database into a fresh installation.
+
 ## Container settings
 
 | Setting in Compose | Purpose |

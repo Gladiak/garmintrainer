@@ -2,9 +2,11 @@
 """VPS operations. Only Python's standard library and Docker are required."""
 import fcntl
 import gzip
+from http.cookies import SimpleCookie
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import subprocess
@@ -107,6 +109,28 @@ def backup(root, domain, release):
     return destination
 
 
+def provision_phpmyadmin(root, domain, release):
+    """Separate read-only account; the password never enters argv or Compose."""
+    path = root / "shared/secrets/phpmyadmin_password"
+    if path.is_symlink():
+        raise RuntimeError("File password phpMyAdmin non valido.")
+    if not path.exists():
+        with path.open("x") as stream:
+            stream.write(secrets.token_urlsafe(32))
+    path.chmod(0o600)
+    password = path.read_text().strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", password):
+        raise RuntimeError("Password phpMyAdmin non valida: ripristina il file originale.")
+    sql = (f"CREATE USER IF NOT EXISTS 'dbviewer'@'%' IDENTIFIED BY '{password}';\n"
+           f"ALTER USER 'dbviewer'@'%' IDENTIFIED BY '{password}';\n"
+           "REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'dbviewer'@'%';\n"
+           "GRANT SELECT, SHOW VIEW ON garmintrainer.* TO 'dbviewer'@'%';\n")
+    compose(root, domain, release, "exec", "-T", "db", "sh", "-ec",
+            'export MYSQL_PWD="$(cat /run/secrets/db_root_password)"; exec mariadb --user=root',
+            input=sql, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    print("phpMyAdmin: utente dbviewer configurato in sola lettura; password privata conservata sul VPS.", flush=True)
+
+
 def verify(domain, attempts=1):
     base = f"https://{domain}"
     for attempt in range(attempts):
@@ -117,13 +141,23 @@ def verify(domain, attempts=1):
             with urllib.request.urlopen(base, timeout=10) as response:
                 if "<script" not in response.read().decode():
                     raise RuntimeError("Frontend non disponibile.")
+            with urllib.request.urlopen(base + "/phpmyadmin/", timeout=10) as response:
+                page = response.read().decode()
+                if 'name="pma_username"' not in page or 'name="pma_password"' not in page:
+                    raise RuntimeError("Login phpMyAdmin non disponibile.")
+                cookies = SimpleCookie()
+                for header in response.headers.get_all("Set-Cookie", []):
+                    cookies.load(header)
+                session_cookies = [cookie for name, cookie in cookies.items() if "phpMyAdmin" in name]
+                if not session_cookies or not all(cookie["secure"] and cookie["httponly"] for cookie in session_cookies):
+                    raise RuntimeError("Cookie phpMyAdmin privo di Secure/HttpOnly.")
             try:
                 urllib.request.urlopen(base + "/api/dashboard", timeout=10).close()
                 raise RuntimeError("La dashboard deve richiedere il login.")
             except urllib.error.HTTPError as error:
                 if error.code != 401 or json.load(error).get("error", {}).get("code") != "AUTH_REQUIRED":
                     raise RuntimeError("Protezione della dashboard non verificata.") from error
-            print(f"Verifica HTTPS riuscita: health, frontend e dashboard protetta.\nApp disponibile: {base}", flush=True)
+            print(f"Verifica HTTPS riuscita: health, frontend, dashboard protetta e login phpMyAdmin.\nApp disponibile: {base}\nphpMyAdmin: {base}/phpmyadmin/", flush=True)
             return
         except (OSError, ValueError, RuntimeError) as error:
             if attempt == attempts - 1:
@@ -147,6 +181,8 @@ def deploy(root, domain, release_name):
     compose(root, domain, release, "build", "--pull", "app")
     if previous:
         backup(root, domain, previous)
+    compose(root, domain, release, "up", "-d", "--wait", "--wait-timeout", "180", "db")
+    provision_phpmyadmin(root, domain, release)
     compose(root, domain, release, "up", "-d", "--no-build", "--wait", "--wait-timeout", "240")
     # Keep data and certificates outside releases; never run down -v or prune.
     temporary_link = root / "current.next"
