@@ -15,6 +15,7 @@ function createApp({ garminManager, databaseProvider = getMariaDatabase, config 
   const garmin = garminManager || createGarminProfileManager({ databaseProvider, config: config.garmin });
   const auth = createAuthentication({ getDatabase: databaseProvider, cookieSecure: config.cookieSecure, allowedOrigins: config.allowedOrigins });
   const app = express();
+  if (config.trustProxyHops) app.set("trust proxy", config.trustProxyHops);
   app.disable("x-powered-by");
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");

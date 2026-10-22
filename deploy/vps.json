@@ -1,0 +1,6 @@
+{
+  "host": "ubuntu@gladiakvps.ovh",
+  "identityFile": "~/.ssh/id_ed25519_ovh",
+  "directory": "/home/ubuntu/garmintrainer",
+  "domain": "garmintrainer.gladiakvps.ovh"
+}

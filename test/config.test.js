@@ -16,3 +16,11 @@ test('configurazione Docker: password letta dal file segreto e impostazioni espl
   assert.equal(config.database.password, 'test-only-password'); assert.equal(config.cookieSecure, true);
   assert.throws(() => readConfig({ DB_PASSWORD_FILE: path.join(directory, 'missing') }), { code: 'ENOENT' });
 });
+
+test('proxy VPS: hop esplicito e validato; header inoltrati ignorati in locale', () => {
+  assert.equal(readConfig({}).trustProxyHops, 0);
+  assert.equal(readConfig({ TRUST_PROXY_HOPS: '1' }).trustProxyHops, 1);
+  for (const value of ['2', '-1', 'true', '1.5']) {
+    assert.throws(() => readConfig({ TRUST_PROXY_HOPS: value }), /TRUST_PROXY_HOPS/);
+  }
+});

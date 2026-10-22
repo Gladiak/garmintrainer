@@ -32,8 +32,8 @@ loading is disabled too.
 Database migrations run before the backend accepts traffic. Health checks wait
 for MariaDB and verify the application's database connection. The app runs as
 the local user's UID/GID, with a non-root default. The database is not published
-on a host port. HTTPS, secure cookies and explicit origins should be configured
-in Compose before a future VPS deployment.
+on a host port. The separate VPS configuration below adds HTTPS, secure cookies
+and an explicit application origin.
 
 ```bash
 npm run docker:logs   # Follow container logs
@@ -175,6 +175,82 @@ Changes to branch access do not revoke previously shared decryption keys or
 access to old encrypted commits. Keep production credentials distinct from local
 development credentials when setting up the VPS.
 
+## Deploy to the test VPS
+
+The configuration is in `deploy/vps.json`: SSH host, local identity-file path,
+remote installation directory and public domain. It currently targets
+`ubuntu@gladiakvps.ovh` and `https://garmintrainer.gladiakvps.ovh`.
+The SSH private key stays on your computer. Encrypted keys can be loaded into
+your SSH agent first; the script uses non-interactive SSH and normal host-key
+verification.
+
+Requirements on your computer: Node.js, SSH/SCP and tar. On the VPS: Docker with
+Compose, Python 3, and SSH access to a user allowed to run Docker. Docker is
+already installed on the configured VPS. Point the domain's A record at
+`51.83.45.39`; any AAAA record must also point to this VPS. Allow inbound TCP
+ports 80 and 443 (and optionally UDP 443) in the VPS/provider firewall.
+
+```bash
+npm run deploy:vps             # First installation or update
+npm run deploy:vps -- status   # Container status
+npm run deploy:vps -- verify   # HTTPS, frontend, database health, protected API
+npm run deploy:vps -- logs     # Follow the last 100 log lines; Ctrl+C to stop
+npm run deploy:vps -- backup   # Database + keys in a private server archive
+```
+
+The script uploads an explicit list of application source files from your current
+working copy, including uncommitted changes. It excludes Git metadata, local
+data, dependencies and SSH/git-crypt keys. No GitHub access or git-crypt key is
+needed on the server. It builds the image on the VPS before changing the running
+containers. The first deployment generates independent database passwords and an
+encryption key on the VPS; it starts with an empty database, so create a new account.
+
+`deploy/compose.vps.yaml` runs MariaDB, the app and Caddy separately. Only Caddy
+publishes ports. MariaDB uses an internal Docker network, and the app accepts
+forwarded client IP/protocol headers from its single private proxy. Caddy
+overwrites the client-IP header, obtains/renews TLS certificates and redirects
+HTTP to HTTPS. See [Caddy's proxy documentation](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).
+Deployment waits for database/application health before checking HTTPS. Compose
+updates preserve named volumes, as described in [Docker's deployment options](https://docs.docker.com/reference/cli/docker/compose/up/).
+
+Server layout under `/home/ubuntu/garmintrainer`:
+
+| Path | Contents |
+| --- | --- |
+| `current` | Link to the last successfully started release |
+| `releases/<id>/` | Uploaded source code and deployment configuration |
+| `shared/secrets/` | VPS-only database passwords and encryption key, mode 600 |
+| `backups/<timestamp>.tar.gz` | Private SQL dump, secret files and release metadata |
+| `deployment.json` | Public domain and current/previous release identifiers |
+
+The project `garmintrainer-vps` owns the `mariadb_data`, `caddy_data` and
+`caddy_config` named volumes. Every update first builds the new image and then
+creates a database/keys backup; a failed backup stops the update. Files and
+images from older releases are kept. The script never deletes volumes, runs
+prune or replaces existing secret files. Concurrent deploys/backups are blocked.
+Updates may briefly interrupt requests while containers restart.
+
+If DNS is still propagating or certificate issuance fails, the containers remain
+running and the command reports the failed HTTPS check. Correct DNS/firewall
+settings, inspect logs, then rerun `verify`. If container startup fails, the
+previous release link stays unchanged; inspect the failed command's release
+directory on the server. No database restore or schema rollback is automatic.
+Migrations can make an older image incompatible: restore the matching database
+backup **and its secret files** when recovery requires rolling back the schema.
+
+Backups contain decrypted database dumps and encryption keys. Keep server backup
+permissions private and copy them to a protected location outside the VPS.
+The backup command creates a consistent MariaDB dump; it does not stop active
+writes or automatically copy archives off the server. TLS certificate state
+persists in Caddy volumes and can be regenerated if needed.
+
+Deployment safety checks:
+
+```bash
+python3 -B -m unittest discover -s test -p deploy_test.py
+node --test test/config.test.js test/proxy.test.js
+```
+
 ## Container settings
 
 | Setting in Compose | Purpose |
@@ -184,6 +260,7 @@ development credentials when setting up the VPS.
 | `DB_PASSWORD_FILE` | Mounted database password secret |
 | `ENCRYPTION_KEY_PATH` | Mounted encryption key secret |
 | `COOKIE_SECURE` | Set `true` for HTTPS |
+| `TRUST_PROXY_HOPS` | `0` locally; `1` only behind the private VPS proxy |
 | `ALLOWED_ORIGINS` | Explicit extra origins allowed to write |
 | `GARMIN_HTTP_TIMEOUT_MS` | Provider request timeout, default 20000 |
 | `GARMIN_TOKEN_REFRESH_MARGIN_MS` | Early renewal, default 60000 |

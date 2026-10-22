@@ -11,6 +11,7 @@
     "test": "node --test test/*.test.js",
     "test:simulation": "node test/simulation-smoke.js",
     "docker:up": "node scripts/docker-local.mjs up",
+    "deploy:vps": "node scripts/deploy-vps.mjs",
     "docker:down": "node scripts/docker-local.mjs down",
     "docker:logs": "node scripts/docker-local.mjs logs",
     "docker:db": "node scripts/docker-local.mjs db",

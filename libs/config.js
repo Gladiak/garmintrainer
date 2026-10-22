@@ -30,6 +30,7 @@ function readConfig(env = process.env) {
     },
     encryptionKeyPath: path.resolve(__dirname, '..', env.ENCRYPTION_KEY_PATH || 'data/encryption.key'),
     cookieSecure: env.COOKIE_SECURE === 'true',
+    trustProxyHops: integerSetting(env, 'TRUST_PROXY_HOPS', 0, 0, 1),
     allowedOrigins: (env.ALLOWED_ORIGINS || 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173').split(',').map(value => value.trim()).filter(Boolean),
     garmin: {
       baseUrl: env.GARMIN_PERSONAL_API_BASE_URL || DEFAULT_BASE_URL,

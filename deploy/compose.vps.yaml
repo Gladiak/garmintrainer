@@ -1,0 +1,83 @@
+name: garmintrainer-vps
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: garmintrainer
+      MARIADB_USER: garmintrainer
+      MARIADB_PASSWORD_FILE: /run/secrets/db_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets: [db_password, db_root_password]
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks: [database]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  app:
+    image: garmintrainer-vps-app:${RELEASE_ID:?Release required}
+    build:
+      context: ..
+      target: runtime
+    user: "${APP_UID:?UID required}:${APP_GID:?GID required}"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: garmintrainer
+      DB_USER: garmintrainer
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      ENCRYPTION_KEY_PATH: /run/secrets/encryption_key
+      COOKIE_SECURE: "true"
+      TRUST_PROXY_HOPS: "1"
+      ALLOWED_ORIGINS: https://${APP_DOMAIN:?Domain required}
+    secrets: [db_password, encryption_key]
+    networks: [web, database]
+    logging: *logging
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Domain required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+    logging: *logging
+secrets:
+  db_password:
+    file: ${DEPLOY_ROOT:?Directory required}/shared/secrets/db_password
+  db_root_password:
+    file: ${DEPLOY_ROOT:?Directory required}/shared/secrets/db_root_password
+  encryption_key:
+    file: ${DEPLOY_ROOT:?Directory required}/shared/secrets/encryption_key
+networks:
+  web:
+  database:
+    internal: true
+volumes:
+  mariadb_data:
+  caddy_data:
+  caddy_config:
