@@ -12,3 +12,4 @@ postman/.dependencies/
 *.ndjson
 .postman/
 dist/
+/OPERATIONS.md
