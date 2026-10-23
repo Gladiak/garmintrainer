@@ -4273,7 +4273,8 @@ main { padding-top: 24px; }
 .configured-grid.section-modules .dashboard-module { min-height: 0; max-height: 100%; overflow: hidden; }
 .configured-grid.section-modules .dashboard-module.compact { display: flex; flex-direction: column; padding: 20px; overflow: auto; }
 .configured-grid .metric-card .metric-caption { margin-top: auto; padding-top: 8px; }
-.configured-grid .module-content { overflow: auto; overscroll-behavior: contain; }
+/* Continue scrolling the page when a module reaches its scroll boundary. */
+.configured-grid .module-content { overflow: auto; }
 .configured-grid .module-content:has(.trend-chart, .sleep-chart, .stress-duration-chart, .activity-range-chart, .chart-empty, .sleep-empty) {
   overflow: clip;
 }
@@ -4307,7 +4308,7 @@ main { padding-top: 24px; }
 .layout-canvas-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .layout-canvas-heading strong { font-size: 12px; }
 .layout-canvas-heading > span { font-size: 10px; color: var(--text-muted); }
-.layout-canvas-scroll { max-height: min(54dvh, 560px); overflow: auto; padding: 12px; overscroll-behavior: contain; scroll-behavior: auto; overflow-anchor: none; }
+.layout-canvas-scroll { max-height: min(54dvh, 560px); overflow: auto; padding: 12px; scroll-behavior: auto; overflow-anchor: none; }
 .layout-canvas { --editor-row: 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: var(--editor-row); gap: 8px; min-width: 500px; position: relative; isolation: isolate;
   background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px);
   background-size: calc((100% + 8px) / 4) 100%, 100% calc(var(--editor-row) + 8px); border-radius: 4px; }
@@ -4445,7 +4446,7 @@ main { padding-top: 24px; }
 .exercise-search .workout-search { grid-column:1/-1; }
 .exercise-search select { font-size:11px; }
 .workout-picker-status { min-height:20px; }
-.exercise-results { height:330px; overflow-y:auto; overscroll-behavior:contain; }
+.exercise-results { height:330px; overflow-y:auto; }
 .exercise-results[aria-busy="true"] { opacity:.55; }
 .exercise-results article { display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--border); }
 .exercise-results article > div { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
