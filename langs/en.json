@@ -422,7 +422,7 @@
   "layout.cancelled": "Change cancelled.",
   "layout.restored": "Default layout restored.",
   "layout.reset": "Restore defaults",
-  "layout.help": "Drag components onto the grid or click to add. Use arrow keys on a component to move it, or on its corner handle to resize it. Delete removes it; Escape cancels a drag.",
+  "layout.help": "Drag components over other boxes: equal-sized boxes exchange places, others make room. Hold near an edge to scroll, including horizontally. Use arrow keys to move a box or resize it from its handle. Delete removes it; Escape cancels.",
   "layout.library": "Component library",
   "layout.search": "Find a component",
   "layout.noResults": "No matching components.",

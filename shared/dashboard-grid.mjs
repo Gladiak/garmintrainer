@@ -47,8 +47,8 @@ export function createModule(modules, type, id) {
   return { id, type, ...firstSpace(modules, w, h) };
 }
 
-// The manipulated item owns its destination. Colliding neighbours move down
-// deterministically; unrelated cells and intentional empty spaces stay intact.
+// Reordering equally sized modules exchanges their places when the vacated
+// cells fit. Other collisions move down; resizing never performs an exchange.
 export function changeModule(modules, id, change) {
   const original = modules.find(item => item.id === id);
   if (!original) return modules;
@@ -59,6 +59,16 @@ export function changeModule(modules, id, change) {
   const moved = { ...original, w, h,
     x: clamp(change.x ?? original.x, 0, GRID_COLUMNS - w),
     y: clamp(change.y ?? original.y, 0, MAX_GRID_ROWS - h) };
+  if (change.w === undefined && change.h === undefined) {
+    const collisions = modules.filter(item => item.id !== id && overlaps(item, moved));
+    const neighbour = collisions[0];
+    if (collisions.length === 1 && neighbour.w === original.w && neighbour.h === original.h) {
+      const exchanged = { ...neighbour, x: original.x, y: original.y };
+      if (!overlaps(exchanged, moved) && !modules.some(item => item.id !== id && item.id !== neighbour.id && overlaps(item, exchanged))) {
+        return modules.map(item => item.id === id ? moved : item.id === neighbour.id ? exchanged : item);
+      }
+    }
+  }
   const placed = [moved];
   for (const module of readingOrder(modules.filter(item => item.id !== id))) {
     const next = { ...module };

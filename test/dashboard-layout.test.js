@@ -61,14 +61,16 @@ test('legacy layouts migrate once with stable IDs, first duplicate retained and 
   for (const modules of Object.values(defaultLayout.sections)) validGrid(modules);
 });
 
-test('moving and resizing push collisions down, respect component minima and preserve unrelated positions', () => {
+test('moving exchanges same-size modules; resizing pushes collisions down and preserves unrelated positions', () => {
   const original = [card('a'), card('b', 1, 0, 'stress-card'), card('c', 1, 3, 'sleep-card'), card('unrelated', 3, 20, 'hrv-card')];
   const next = changeModule(original, 'a', { x: 1 });
   assert.equal(next[0].x, 1);
-  assert.equal(next[1].y, 3);
-  assert.equal(next[2].y, 6);
+  assert.equal(next[1].x, 0); assert.equal(next[1].y, 0);
+  assert.deepEqual(next[2], original[2]);
   assert.deepEqual(next[3], original[3]);
   assert.equal(original[0].x, 0);
+  const resized = changeModule(original, 'a', { w: 2 });
+  assert.equal(resized[1].y, 3); assert.equal(resized[2].y, 6);
   const large = changeModule(next, 'a', { w: 8, h: 30, x: 9 });
   assert.equal(large[0].w, 4); assert.equal(large[0].h, 24); assert.equal(large[0].x, 0);
   const chart = arrangeModules([{ id: 'chart', type: 'heart-rate' }]);
@@ -77,11 +79,31 @@ test('moving and resizing push collisions down, respect component minima and pre
   validGrid(large);
 });
 
+test('dragging a lower module onto an occupied slot exchanges it without growing the page', () => {
+  const original = [card('top'), card('bottom', 0, 12, 'stress-card'), card('unrelated', 3, 6, 'sleep-card')];
+  const next = changeModule(original, 'bottom', { x: 0, y: 0 });
+  assert.equal(next[0].y, 12); assert.equal(next[1].y, 0);
+  assert.deepEqual(next[2], original[2]); validGrid(next);
+  assert.deepEqual(changeModule(next, 'bottom', { y: 12 }), original);
+  const partial = changeModule(original, 'top', { y: 1 });
+  validGrid(partial);
+});
+
+test('mixed-size and multiple collisions reflow without losing modules or permitting saved overlaps', () => {
+  const original = [card('moving', 0, 9), card('left', 0, 0, 'stress-card'), card('right', 1, 0, 'sleep-card')];
+  const larger = changeModule(original, 'moving', { y: 0, w: 2 });
+  assert.equal(larger[1].y, 3); assert.equal(larger[2].y, 3);
+  assert.deepEqual(larger.map(item => item.id), original.map(item => item.id)); validGrid(larger);
+  const different = [{ ...card('moving'), w: 2 }, card('small', 2, 0, 'stress-card')];
+  const shifted = changeModule(different, 'moving', { x: 1 });
+  assert.equal(shifted[1].y, 3); validGrid(shifted);
+});
+
 test('repeated drag/resize operations remain deterministic, bounded and collision free', () => {
   let modules = structuredClone(defaultLayout.sections.wellness);
   for (let i = 0; i < 120; i += 1) {
     const item = modules[i % modules.length];
-    const change = { x: i % 4, y: (i * 7) % 40, w: i % 5, h: (i * 3) % 18 };
+    const change = { x: i % 4, y: (i * 7) % 40, ...(i % 2 ? {} : { w: i % 5, h: (i * 3) % 18 }) };
     const next = changeModule(modules, item.id, change);
     assert.deepEqual(changeModule(modules, item.id, change), next);
     assert.deepEqual(validateLayout({ version: 3, sections: { overview: [], wellness: next } }).sections.wellness, next);

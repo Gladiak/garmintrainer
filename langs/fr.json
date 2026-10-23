@@ -422,7 +422,7 @@
   "layout.cancelled": "Modification annulée.",
   "layout.restored": "Disposition par défaut rétablie.",
   "layout.reset": "Rétablir par défaut",
-  "layout.help": "Faites glisser les composants sur la grille ou cliquez pour les ajouter. Utilisez les flèches sur un composant pour le déplacer, ou sur sa poignée pour le redimensionner. Suppr le retire ; Échap annule le déplacement.",
+  "layout.help": "Déplacez les composants sur les autres blocs : ceux de même taille échangent leur place, les autres se décalent. Approchez les bords pour défiler, aussi horizontalement. Utilisez les flèches pour déplacer un bloc ou sa poignée pour le redimensionner. Suppr retire ; Échap annule.",
   "layout.library": "Bibliothèque de composants",
   "layout.search": "Rechercher un composant",
   "layout.noResults": "Aucun composant correspondant.",

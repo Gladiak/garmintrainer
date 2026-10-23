@@ -422,7 +422,7 @@
   "layout.cancelled": "Modifica annullata.",
   "layout.restored": "Layout predefinito ripristinato.",
   "layout.reset": "Ripristina predefinito",
-  "layout.help": "Trascina i componenti sulla griglia o clicca per aggiungerli. Usa le frecce sul componente per spostarlo, o sulla maniglia nell’angolo per ridimensionarlo. Canc elimina; Esc annulla il trascinamento.",
+  "layout.help": "Trascina i componenti anche sopra altri box: quelli della stessa dimensione si scambiano di posto, gli altri fanno spazio. Avvicinati ai bordi per scorrere, anche orizzontalmente. Usa le frecce per spostare il box o ridimensionarlo dalla maniglia. Canc elimina; Esc annulla.",
   "layout.library": "Libreria componenti",
   "layout.search": "Cerca un componente",
   "layout.noResults": "Nessun componente corrispondente.",

@@ -20,6 +20,7 @@ export default function WorkoutEditor({ initial, catalog, onClose, onSaved }) {
   const [searching, setSearching] = useState(false); const [searchError, setSearchError] = useState(null);
   const [saving, setSaving] = useState(false); const [error, setError] = useState(null); const [discard, setDiscard] = useState(false);
   const [picker, setPicker] = useState(!initial); const [added, setAdded] = useState('');
+  const resultsViewport = useRef(null);
   const source = useRef(JSON.stringify({ name: initial?.name || '', notes: initial?.notes || '', exercises: (initial?.exercises || []).map(({ importId, exerciseId, sets }) => ({ importId, exerciseId, sets })) }));
   const body = useMemo(() => ({ name, notes, exercises: exercises.map(({ importId, exerciseId, sets }) => ({ importId, exerciseId, sets })), ...(initial ? { version: initial.version } : {}) }), [name, notes, exercises, initial]);
   const dirty = source.current !== JSON.stringify({ name, notes, exercises: body.exercises });
@@ -39,7 +40,10 @@ export default function WorkoutEditor({ initial, catalog, onClose, onSaved }) {
       try {
         const query = new URLSearchParams({ q: search, equipment, group, page });
         const response = await request(`/gym/exercises?${query}`, { signal: controller.signal });
-        if (!controller.signal.aborted) setResults(response);
+        if (!controller.signal.aborted) {
+          setResults(response);
+          resultsViewport.current?.scrollTo({ top: 0, behavior: 'instant' });
+        }
       } catch (failure) { if (!controller.signal.aborted) { setSearchError(failure); setResults(null); } }
       finally { if (!controller.signal.aborted) setSearching(false); }
     }, 250);
@@ -76,9 +80,9 @@ export default function WorkoutEditor({ initial, catalog, onClose, onSaved }) {
               <select aria-label={t('workouts.filterEquipment')} value={equipment} onChange={event => { setEquipment(event.target.value); setPage(1); }}><option value="">{t('workouts.allEquipment')}</option>{catalog.equipment.map(item => <option key={item} value={item}>{item}</option>)}</select></div>
             <p className="workout-picker-status" role="status">{searching ? t('common.loading') : results ? t('workouts.results', { count: results.total }) : ''}{added && ` · ${added} ${t('workouts.added')}`}</p>
             {searchError && <p role="alert" className="form-error">{messageText(searchError)}</p>}
-            <div className="exercise-results" aria-busy={searching}>{!searching && results?.items.map(item => <article key={`${item.importId}:${item.exerciseId}`}>
+            <div className="exercise-results" ref={resultsViewport} aria-busy={searching}>{results?.items.map(item => <article key={`${item.importId}:${item.exerciseId}`}>
               <div><strong>{item.name}</strong><span>{item.equipment} · {item.groups.filter(g => g.role === 'target').map(g => g.name).join(', ') || t('workouts.unmapped')}</span></div>
-              <button type="button" className="icon-button" aria-label={`${t('workouts.addExercise')}: ${item.name}`} disabled={exercises.length >= 40 || load.totalSets > 297} onClick={() => { setExercises(previous => [...previous, draftExercise(item)]); setAdded(item.name); }}><Plus size={18} /></button>
+              <button type="button" className="icon-button" aria-label={`${t('workouts.addExercise')}: ${item.name}`} disabled={searching || exercises.length >= 40 || load.totalSets > 297} onClick={() => { setExercises(previous => [...previous, draftExercise(item)]); setAdded(item.name); }}><Plus size={18} /></button>
             </article>)}</div>
             {!searching && results?.total === 0 && <p className="workout-hint">{t('workouts.noResults')}</p>}
             {results?.total > results?.pageSize && <div className="workout-pagination"><button className="button secondary" type="button" disabled={page === 1 || searching} onClick={() => setPage(page - 1)}>{t('workouts.previous')}</button><span>{page} / {Math.ceil(results.total / results.pageSize)}</span><button className="button secondary" type="button" disabled={page * results.pageSize >= results.total || searching} onClick={() => setPage(page + 1)}>{t('workouts.next')}</button></div>}

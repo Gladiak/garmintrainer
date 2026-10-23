@@ -75,10 +75,10 @@ export default function App({ user, initialProfile, onLogout }) {
       <a className="brand" href="#overview" onClick={event => navigate('overview', event)}><span className="brand-mark"><Activity size={24} strokeWidth={2.3} /></span><span>garmin<span className="brand-light">trainer</span><small>{t('nav.personalSpace')}</small></span></a>
       <div className="sidebar-label">{t('nav.journey')}</div>
       <nav>
-        <a className={activeNav === 'overview' ? 'nav-link active' : 'nav-link'} href="#overview" onClick={event => navigate('overview', event)}><LayoutDashboard size={18} />{t('nav.overview')}<span className="nav-indicator" /></a>
-        <a className={activeNav === 'wellness' ? 'nav-link active' : 'nav-link'} href="#wellness" onClick={event => navigate('wellness', event)}><HeartPulse size={18} />{t('nav.wellness')}<span className="nav-indicator" /></a>
-        <a className={activeNav === 'plan' ? 'nav-link active' : 'nav-link'} href="#plan" onClick={event => navigate('plan', event)}><CalendarDays size={18} />{t('nav.plan')}<span className="nav-indicator" /></a>
-        <a className={activeNav === 'workouts' ? 'nav-link active' : 'nav-link'} href="#workouts" onClick={event => navigate('workouts', event)}><Dumbbell size={18} />{t('nav.workouts')}<span className="nav-indicator" /></a>
+        <a className={activeNav === 'overview' ? 'nav-link active' : 'nav-link'} href="#overview" onClick={event => navigate('overview', event)}><LayoutDashboard size={18} /><span className="nav-label" title={t('nav.overview')}>{t('nav.overview')}</span><span className="nav-indicator" /></a>
+        <a className={activeNav === 'wellness' ? 'nav-link active' : 'nav-link'} href="#wellness" onClick={event => navigate('wellness', event)}><HeartPulse size={18} /><span className="nav-label" title={t('nav.wellness')}>{t('nav.wellness')}</span><span className="nav-indicator" /></a>
+        <a className={activeNav === 'plan' ? 'nav-link active' : 'nav-link'} href="#plan" onClick={event => navigate('plan', event)}><CalendarDays size={18} /><span className="nav-label" title={t('nav.plan')}>{t('nav.plan')}</span><span className="nav-indicator" /></a>
+        <a className={activeNav === 'workouts' ? 'nav-link active' : 'nav-link'} href="#workouts" onClick={event => navigate('workouts', event)}><Dumbbell size={18} /><span className="nav-label" title={t('nav.workouts')}>{t('nav.workouts')}</span><span className="nav-indicator" /></a>
       </nav>
       <div className="sidebar-divider" />
       <div className="sidebar-bottom">

@@ -71,8 +71,12 @@ component minima, page eligibility, unique types per page and non-overlap. Old
 layouts migrate deterministically, retaining the first instance of duplicate types.
 The database continues to store the encrypted layout payload without a schema change.
 
-The editor uses Pointer Events for mouse, pen and touch, with edge scrolling and
-Escape to cancel. Clicking a library item also adds it; arrow keys move a focused
+The editor uses Pointer Events for mouse, pen and touch. A floating preview can
+pass over occupied cells; equally sized modules exchange positions when possible,
+and other collisions make room below. The destination is shown by a placeholder.
+Edge scrolling supports both axes and nested settings/grid containers; wheel
+scrolling updates the destination even with a stationary pointer. Dropping keeps
+the current viewport, and Escape cancels the gesture. Clicking a library item also adds it; arrow keys move a focused
 component, arrow keys on its corner handle resize it, and Delete removes it.
 Only Save persists the draft. The four-column desktop geometry is shared with the
 actual pages; narrower containers derive a two- or one-column arrangement without

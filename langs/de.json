@@ -422,7 +422,7 @@
   "layout.cancelled": "Änderung abgebrochen.",
   "layout.restored": "Standardlayout wiederhergestellt.",
   "layout.reset": "Standard wiederherstellen",
-  "layout.help": "Ziehe Komponenten ins Raster oder klicke zum Hinzufügen. Verschiebe eine Komponente mit den Pfeiltasten oder ändere ihre Größe mit den Pfeiltasten am Eckgriff. Entf entfernt sie; Esc bricht das Ziehen ab.",
+  "layout.help": "Ziehe Komponenten über andere Blöcke: Gleich große Blöcke tauschen Plätze, andere weichen aus. Halte den Zeiger am Rand, um auch horizontal zu scrollen. Mit Pfeiltasten verschiebst du einen Block oder änderst seine Größe am Griff. Entf entfernt; Esc bricht ab.",
   "layout.library": "Komponentenbibliothek",
   "layout.search": "Komponente suchen",
   "layout.noResults": "Keine passenden Komponenten.",

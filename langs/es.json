@@ -422,7 +422,7 @@
   "layout.cancelled": "Cambio cancelado.",
   "layout.restored": "Diseño predeterminado restaurado.",
   "layout.reset": "Restaurar predeterminado",
-  "layout.help": "Arrastra componentes a la cuadrícula o pulsa para añadirlos. Usa las flechas sobre un componente para moverlo, o sobre su control de esquina para cambiar su tamaño. Supr lo elimina; Esc cancela el arrastre.",
+  "layout.help": "Arrastra componentes sobre otros bloques: los del mismo tamaño intercambian posiciones y los demás dejan espacio. Acércate a los bordes para desplazarte, también horizontalmente. Usa las flechas para mover un bloque o su control para redimensionarlo. Supr elimina; Esc cancela.",
   "layout.library": "Biblioteca de componentes",
   "layout.search": "Buscar un componente",
   "layout.noResults": "No hay componentes coincidentes.",
