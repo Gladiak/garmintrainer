@@ -4192,6 +4192,18 @@ select:not([multiple]):not([size]) {
 .planner-day-sessions { display: grid; gap: 12px; }
 .planner-session { padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
 .planner-session.completed { border-color: var(--sage-strong); }
+.planner-sources { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-top: 16px; color: var(--text-muted); font-size: 11px; }
+.planner-sources > span, .planner-day-total, .planner-source-badge, .planner-sync-status { display: flex; align-items: center; gap: 6px; }
+.planner-page { --garmin-ink: #2563a5; --garmin-tint: #4294e6; }
+:root[data-color-mode="dark"] .planner-page { --garmin-ink: #9acaff; }
+.planner-garmin-legend, .planner-source-badge { color: var(--garmin-ink); }
+.planner-day-total { color: var(--text-muted); font-size: 10px; margin: -7px 0 14px; }
+.planner-session.garmin-session { padding-inline: 10px; background: color-mix(in srgb, var(--garmin-tint) 9%, var(--surface)); border-color: color-mix(in srgb, var(--garmin-tint) 40%, var(--border)); border-left: 3px solid var(--garmin-tint); }
+.planner-source-badge { align-items: flex-start; font-size: 9px; font-weight: 650; line-height: 1.5; margin-bottom: 9px; }
+.planner-source-badge svg { margin-top: 1px; }
+.planner-sync-status { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-top: 12px; flex-wrap: wrap; }
+.planner-sync-status.is-warning { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.planner-sync-status .text-button { text-decoration: underline; font-size: inherit; }
 .planner-session h3 { margin: 0 0 8px; font-size: 12px; line-height: 1.5; }
 .planner-session p { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: var(--text-muted); font-size: 10px; line-height: 1.6; margin: 5px 0; }
 .planner-session .session-note { font-size: 10px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
@@ -4233,6 +4245,7 @@ main { padding-top: 24px; }
 .period-navigation .today-button { min-height: 38px; padding: 0 8px; font-size: 11px; white-space: nowrap; }
 .planner-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
 .planner-toolbar .week-total { display: block; margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.6; }
+.planner-toolbar .week-total small { display: block; font-size: 9px; }
 .planner-toolbar > .button { margin-left: auto; }
 @media (max-width: 760px) {
   .topbar { height: 44px; }

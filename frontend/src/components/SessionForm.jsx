@@ -3,8 +3,9 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useState } from 'react';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import Modal from './Modal';
+import { SPORT_LABELS } from '../lib/activities';
 
-export const SPORT_LABELS = { running: 'sports.running', cycling: 'sports.cycling', strength: 'sports.strength', walking: 'sports.walking', mobility: 'sports.mobility', swimming: 'sports.swimming' };
+export { SPORT_LABELS };
 
 export default function SessionForm({ date, onClose, onSave }) {
   const { t } = useTranslation();

@@ -6,18 +6,11 @@ import { durationLabel, formatDay, shiftDay, weekDays } from '../lib/dates';
 import { formatNumber } from '../lib/numbers';
 import { trainingColors, trainingIntensity, trainingLoad } from '../lib/training-load';
 import { useTheme } from './ThemeProvider';
-import { SPORT_LABELS } from './SessionForm';
+import { activityLabel } from '../lib/activities';
 import { ChartEmpty } from './Charts';
 
 const LEGEND_KEYS = ['training.legendRest', 'training.legendUnderOne', 'training.legendOneTwo', 'training.legendTwoThree', 'training.legendThreePlus'];
 const localMidnight = day => new Date(`${day}T00:00:00`);
-
-function activityLabel(session, t) {
-  const type = session.activityType;
-  if (!type) return t('activity.genericActivity');
-  const sport = Object.keys(SPORT_LABELS).find(key => type === key || type.includes(key));
-  return sport ? t(SPORT_LABELS[sport]) : type.replaceAll('_', ' ');
-}
 
 function activityFacts(session, t, locale) {
   return [session.time, durationLabel(session.durationMinutes),

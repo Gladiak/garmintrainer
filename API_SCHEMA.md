@@ -111,6 +111,16 @@ suddivisi in tre pagine indipendenti:
   `period` opzionale risolve il primo intervallo nel fuso Garmin. `PUT /api/dashboard/layout` salva il layout;
   `POST /api/garmin/sync` aggiorna le dipendenze, con `view`, `resources`, `force` e
   `moduleId` opzionali. Le mutazioni richiedono la protezione CSRF esistente.
+- **Il mio piano** affianca le sessioni locali alle attività Garmin, in sola lettura.
+  Con `view=plan`, `activityFrom` e `activityTo` selezionano fino a 7 giorni
+  (default: lunedì–domenica della settimana corrente nel fuso Garmin), indipendentemente
+  dai moduli configurati. `activities.range` conserva la settimana richiesta;
+  `requirements.activities` copre soltanto i giorni trascorsi nell'ultimo anno.
+  Settimane interamente future o più vecchie non generano richieste Garmin.
+  Lettura e sync riusano cache, identità verificata e ricerca attività esistenti;
+  nessuna attività importata viene trasformata in una sessione locale modificabile.
+  Totali del calendario: somma delle durate locali e importate, senza riconciliazione
+  automatica tra una sessione pianificata e un'attività registrata.
 - Il coordinatore UI applica i risultati man mano che ogni risorsa termina. Fonti
   condivise vengono richieste una volta; riordino e moduli assenti non generano
   chiamate superflue. Una card aggiornata singolarmente forza solo il giorno D,

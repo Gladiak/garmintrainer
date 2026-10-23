@@ -29,11 +29,14 @@ function rangesFor(input, timeZone) {
   const days = dateRange(from, to, 31);
   if (input.view === 'overview' && from !== to) throw new InputError('La panoramica mostra un solo giorno.', 400, 'INVALID_DATE_RANGE');
   if (from < shiftDate(today, -89)) throw new InputError('Intervallo non disponibile.', 400, 'INVALID_DATE_RANGE');
-  const activityFrom = calendarDate(input.activityFrom || from);
-  const activityTo = calendarDate(input.activityTo || to);
-  dateRange(activityFrom, activityTo, 62);
-  if (activityFrom < shiftDate(today, -365)) throw new InputError('Intervallo non disponibile.', 400, 'INVALID_DATE_RANGE');
-  const activityDays = activityFrom > today ? [] : dateRange(activityFrom, activityTo > today ? today : activityTo, 62);
+  const plan = input.view === 'plan';
+  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const monday = shiftDate(today, -((weekday + 6) % 7));
+  const activityFrom = calendarDate(input.activityFrom || (plan ? monday : from));
+  const activityTo = calendarDate(input.activityTo || (plan ? shiftDate(activityFrom, 6) : to));
+  const requestedActivityDays = dateRange(activityFrom, activityTo, plan ? 7 : 62);
+  if (!plan && activityFrom < shiftDate(today, -365)) throw new InputError('Intervallo non disponibile.', 400, 'INVALID_DATE_RANGE');
+  const activityDays = requestedActivityDays.filter(day => day <= today && (!plan || day >= shiftDate(today, -365)));
   return { today, from, to, days, activityFrom, activityTo, activityDays };
 }
 
@@ -59,6 +62,8 @@ function missingRanges(rows, days, today, force, resource, attempts) {
 }
 
 function requirementsFor(layout, range, moduleId, view) {
+  if (view === 'plan' && moduleId === undefined) return range.activityDays.length
+    ? { activities: { from: range.activityDays[0], to: range.activityDays.at(-1) } } : {};
   layout = { modules: viewModules(layout, view) };
   if (moduleId !== undefined) {
     const module = layout.modules.find(item => item.id === moduleId);
@@ -159,9 +164,9 @@ function createDashboardMeasurements({ getDatabase, garmin }) {
         completeByDay: Object.fromEntries(dateRange(shiftDate(range.to, -27), range.to, 28).map(date => [date, activityDaysComplete([date])])),
       } : null,
       activities: { sessions: [...activities.values()].filter(session => session.date >= range.activityFrom && session.date <= (range.activityDays.at(-1) || range.to)), ...sync.activities,
-        ...(sync.activities ? { complete: activityDaysComplete(range.activityDays) } : {}),
+        ...(sync.activities || input.view === 'plan' ? { complete: activityDaysComplete(range.activityDays) } : {}),
         ...(conflictingActivities ? { complete: false, state: 'stale', errorCode: 'GARMIN_AMBIGUOUS_RESPONSE' } : {}),
-        range: { from: range.from, to: range.to } },
+        range: input.view === 'plan' ? { from: range.activityFrom, to: range.activityTo } : { from: range.from, to: range.to } },
     };
   }
 

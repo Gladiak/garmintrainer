@@ -7,8 +7,11 @@ training plan and saved language and theme preferences.
 ## Features
 
 - Create, complete, reopen and delete workout sessions in the weekly planner.
+- See Garmin Connect activities alongside your own sessions in the weekly planner,
+  with blue cards, an import icon and read-only labels. Calendar duration totals
+  include both sources; Garmin activities retain their separate imported records.
 - Review Garmin activity hours over the selected dates, with daily totals and
-  activity details. The local planner remains separate.
+  activity details.
 - Open Overview on today and browse one day at a time: heart rate, HRV, Body
   Battery, stress, sleep, steps and daily training information.
 - Explore Wellbeing over 1/7/14/30 days: recovery, HRV status and personal baseline,

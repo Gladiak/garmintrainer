@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { request } from '../lib/api';
-import { shiftDay } from '../lib/dates';
+import { shiftDay, weekDays } from '../lib/dates';
 import { useCurrentDay } from './useCurrentDay';
 import { translationError } from '../lib/i18n';
 import catalog from '../../../shared/dashboard-modules.json';
@@ -14,6 +14,7 @@ export function useDashboard(view = 'overview', { enabled = true } = {}) {
   const [error, setError] = useState('');
   const [wellnessPeriod, setWellnessPeriod] = useState(14);
   const [anchors, setAnchors] = useState({ overview: null, wellness: null });
+  const [planAnchor, setPlanAnchor] = useState(null);
   const period = view === 'wellness' ? wellnessPeriod : 1;
   const current = useRef(null);
   const generation = useRef(0);
@@ -24,7 +25,9 @@ export function useDashboard(view = 'overview', { enabled = true } = {}) {
   const anchorDate = view === 'plan' || !anchors[view] ? null : anchors[view] < minimumDay ? minimumDay : anchors[view] > currentDay ? currentDay : anchors[view];
   const endDay = anchorDate || currentDay;
   const visibleFrom = shiftDay(endDay, -(period - 1));
-  const query = new URLSearchParams({ view, from: visibleFrom, to: endDay, timeZone }).toString();
+  const planDays = weekDays(planAnchor || currentDay);
+  const query = new URLSearchParams({ view, from: visibleFrom, to: endDay, timeZone,
+    ...(view === 'plan' ? { activityFrom: planDays[0], activityTo: planDays[6] } : {}) }).toString();
   const queryRef = useRef(query);
   queryRef.current = query;
 
@@ -43,13 +46,15 @@ export function useDashboard(view = 'overview', { enabled = true } = {}) {
     setLoading(true); setError(''); setResourceErrors({}); setSyncing(false); setBusyResources([]);
     const initial = !dataRef.current;
     const requested = Object.fromEntries(new URLSearchParams(queryRef.current));
-    const readQuery = initial ? new URLSearchParams({ view: requested.view, period: requested.view === 'wellness' ? Math.round((Date.parse(requested.to) - Date.parse(requested.from)) / 86400000) + 1 : 1, timeZone: requested.timeZone }).toString() : queryRef.current;
+    const readQuery = initial ? new URLSearchParams({ view: requested.view, period: requested.view === 'wellness' ? Math.round((Date.parse(requested.to) - Date.parse(requested.from)) / 86400000) + 1 : 1, timeZone: requested.timeZone,
+      ...(requested.view === 'plan' ? { activityFrom: requested.activityFrom, activityTo: requested.activityTo } : {}) }).toString() : queryRef.current;
     try {
       const result = await request(`/dashboard?${readQuery}`, { signal: controller.signal });
       if (!active()) return;
       apply(result); setLoading(false);
       if (!result.profile.hasGarminKey || !importData) return;
-      const body = { view: result.view, from: result.measurements.range.from, to: result.measurements.range.to, timeZone: result.timeZone, force, ...(moduleId ? { moduleId } : {}) };
+      const body = { view: result.view, from: result.measurements.range.from, to: result.measurements.range.to, timeZone: result.timeZone, force,
+        ...(result.view === 'plan' ? { activityFrom: result.activities.range.from, activityTo: result.activities.range.to } : {}), ...(moduleId ? { moduleId } : {}) };
       const resources = Object.keys(result.requirements).filter(resource => (!onlyResources || onlyResources.includes(resource)) && (force || result.resourceStates[resource]?.state !== 'fresh'));
       setSyncing(resources.length > 0);
       // One coordinated queue: results reach their modules as each source completes.
@@ -102,7 +107,8 @@ export function useDashboard(view = 'overview', { enabled = true } = {}) {
   const createSession = values => mutate('/sessions', { method: 'POST', body: values }, (previous, session) => ({ ...previous, sessions: [...previous.sessions, session] }));
   const setSessionStatus = (id, status) => mutate(`/sessions/${id}`, { method: 'PATCH', body: { status } }, (previous, session) => ({ ...previous, sessions: previous.sessions.map(item => item.id === id ? session : item) }));
   const deleteSession = id => mutate(`/sessions/${id}`, { method: 'DELETE' }, previous => ({ ...previous, sessions: previous.sessions.filter(item => item.id !== id) }));
-  const sameRange = data?.view === view && data?.measurements.range.from === visibleFrom && data?.measurements.range.to === endDay;
+  const sameRange = data?.view === view && data?.measurements.range.from === visibleFrom && data?.measurements.range.to === endDay
+    && (view !== 'plan' || data?.activities.range.from === planDays[0] && data?.activities.range.to === planDays[6]);
   const visibleData = !data || sameRange ? data : { ...data, measurements: { ...data.measurements, daily: [], details: {} }, trainingContext: null, activities: { sessions: [], complete: false }, resourceStates: {} };
   const failure = sameRange && (Object.values(resourceErrors)[0] || Object.values(data?.resourceStates || {}).find(state => state.errorCode)?.errorCode);
 
@@ -110,7 +116,7 @@ export function useDashboard(view = 'overview', { enabled = true } = {}) {
     setPeriod: value => {
       setWellnessPeriod(value);
       setAnchors(previous => ({ ...previous, wellness: previous.wellness && shiftDay(previous.wellness, -(value - 1)) < shiftDay(currentDay, -89) ? shiftDay(currentDay, -90 + value) : previous.wellness }));
-    }, endDay, visibleFrom, currentDay,
+    }, endDay, visibleFrom, currentDay, planDays, setPlanAnchor,
     setAnchorDate: value => setAnchors(previous => ({ ...previous, [view]: value >= currentDay ? null : value < minimumDay ? minimumDay : value })),
     shiftPeriod: direction => setAnchors(previous => {
       const next = shiftDay(anchorDate || currentDay, direction * period);

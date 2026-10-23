@@ -153,11 +153,11 @@ test('activity metadata comes from search summaries without additional detail re
   assert.ok(!provider.state.requests.some(row => row.path.startsWith('/activity-service/')));
 });
 
-test('separate views constrain overview to one day and keep the plan free of Garmin requests', async t => {
+test('separate views constrain overview to one day and plan reads stay local until sync', async t => {
   const { register, provider } = await accountApplication(t, { measurements: true });
   const a = await register(values);
-  const plan = await a.api('/garmin/sync', { method: 'POST', body: { view: 'plan' } });
-  assert.equal(plan.status, 200); assert.deepEqual((await plan.json()).requirements, {});
+  const plan = await a.api('/dashboard?view=plan&timeZone=Europe%2FRome');
+  assert.equal(plan.status, 200); assert.deepEqual(Object.keys((await plan.json()).requirements), ['activities']);
   assert.equal(provider.state.dataRequests, 0); assert.equal(provider.state.tokenRequests, 0);
   const overview = await (await a.api('/dashboard?view=overview&timeZone=Europe%2FRome')).json();
   assert.deepEqual(overview.measurements.range, { from: today, to: today });
