@@ -13,3 +13,4 @@ postman/.dependencies/
 .postman/
 dist/
 /OPERATIONS.md
+/import-gymfit.command

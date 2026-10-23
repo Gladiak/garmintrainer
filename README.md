@@ -137,6 +137,45 @@ Database migrations run automatically at startup.
 **My profile** lets you update the same profile later. **Sign out** ends the
 current session. An unfinished profile setup reopens on the next login.
 
+## GymFit exercise catalog import
+
+For a single-file launcher, copy `scripts/templates/import-gymfit.command` to
+`import-gymfit.command` in the project root, set its `API_KEY` constant, make it
+executable (`chmod 700 import-gymfit.command`) and run `./import-gymfit.command`.
+The local file is excluded from Git and Docker build contexts. It starts MariaDB
+and automatically starts or resumes the import; completed imports are not downloaded again.
+
+Import the exercise catalog and primary/secondary muscle links into local MariaDB
+with a resumable CLI. It reports progress, quota, errors and retries, and activates
+the new catalog only after validation. Set `GYMFIT_API_KEY_FILE` to a private file
+containing your key, then run:
+
+```bash
+npm run docker:db
+npm run gymfit:import:docker -- start --preflight
+npm run gymfit:import:docker -- resume
+npm run gymfit:import:docker -- status
+```
+
+The preflight makes real API requests and saves their results for resume.
+Defaults are 20 requests/minute, a 900-attempt budget and a 100-request quota
+reserve. See [the CLI guide](docs/gymfit-import.md) for key configuration,
+JSON progress, interruption handling, explicit publication and local execution.
+Exercise, muscle and muscle group names are stored in English.
+
+Audit or export the active catalog without an API key:
+
+```bash
+npm run gymfit:import:docker -- audit
+npm run --silent gymfit:import:docker -- export > catalog.json.gz
+```
+
+On a destination database, `restore < catalog.json.gz` stages the five GymFit
+tables in one transaction, with SHA-256 and checkpoint validation. It keeps
+the destination's active catalog unchanged until `publish UUID` is run.
+See [the transfer procedure](docs/gymfit-import.md#trasferimento-in-produzione)
+for production backup, restore, validation and rollback.
+
 ## Local checks
 
 ```bash
@@ -146,3 +185,13 @@ npm run test:mariadb
 ```
 
 The MariaDB integration checks require Docker and use a temporary test schema.
+
+### Workout routines
+
+The **Workout routines / Schede allenamento** section (`#workouts`) uses the local GymFit catalog. Each profile can create, edit, duplicate and delete routines, search exercises by name, muscle group or equipment, reorder exercises, and record repetitions, total kg and rest for individual sets. Migration `009-workout-routines.sql` adds three private-data tables; catalog versions referenced by routines cannot be deleted. Saves are transactional and reject stale versions with HTTP 409.
+
+The front/back SVG uses the current theme accent. The percentage of each group is its allocated volume divided by the **whole routine's external volume**, rather than the largest group on the chart. For each exercise, volume is `sum(repetitions × total kg)`. Group weights are `target = 1` and `synergist = 0.5`, normalized across distinct groups. Repeated muscles/roles cannot multiply a group's weight. Unmapped volume remains a separate percentage in the denominator. Empty kg is missing data; zero kg adds no external volume. No bodyweight, effective load or muscle activation percentages are inferred. These conventions are described beside the editor.
+
+The page uses authenticated `/api/gym/*` and `/api/workouts/*` endpoints, independently of Garmin synchronization. Labels follow the interface language; exercise and group names remain English. The same calculation module runs in the browser and backend.
+
+Run `npm test`, `npm run test:mariadb` (includes private workout CRUD and isolation), and `npm run test:gymfit:mariadb` for automated checks. Tests use synthetic providers and disposable schemas without consuming API quota.

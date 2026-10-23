@@ -1,13 +1,14 @@
 'use strict';
 
 const fs = require('node:fs');
-const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const mariadb = require('mariadb');
 const { readConfig } = require('./config');
 const { createCredentialVault } = require('./credentials');
 const { InputError, validateProfile, validateSession } = require('./validation');
 const { createGarminRepository } = require('../helpers/garmin-repository');
+const { createWorkoutRepository } = require('../helpers/workout-repository');
+const { migrateMariaDatabase } = require('./mariadb-migrations');
 const themes = new Set(require('./themes.json').map(theme => theme.id));
 
 async function createMariaDatabase(config = readConfig()) {
@@ -15,26 +16,7 @@ async function createMariaDatabase(config = readConfig()) {
   let connection;
   try {
     connection = await pool.getConnection();
-    // Serialize schema initialization across app starts; DDL is idempotent because
-    // MariaDB commits DDL implicitly. Record a version only after all steps succeed.
-    const locks = await connection.query("SELECT GET_LOCK('garmintrainer_schema', 30) AS acquired");
-    if (locks[0].acquired !== 1) throw new Error('Migrazione database già in corso.');
-    try {
-      await connection.query('CREATE TABLE IF NOT EXISTS schema_migrations (version INT PRIMARY KEY)');
-      const versions = await connection.query('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1');
-      const directory = path.join(__dirname, '../db/migrations/mariadb');
-      const migrations = fs.readdirSync(directory).filter(name => /^\d+-.*\.sql$/.test(name)).sort();
-      const currentVersion = versions[0]?.version || 0;
-      const latestVersion = Number(migrations.at(-1).split('-')[0]);
-      if (currentVersion > latestVersion) throw new Error('Il database richiede una versione più recente dell’app.');
-      for (const filename of migrations) {
-        const version = Number(filename.split('-')[0]);
-        if (version <= currentVersion) continue;
-        const sql = fs.readFileSync(path.join(directory, filename), 'utf8');
-        for (const statement of sql.split(';').map(value => value.trim()).filter(Boolean)) await connection.query(statement);
-        await connection.query('INSERT INTO schema_migrations(version) VALUES (?)', [version]);
-      }
-    } finally { await connection.query("SELECT RELEASE_LOCK('garmintrainer_schema')"); }
+    await migrateMariaDatabase(connection);
     if (!fs.existsSync(config.encryptionKeyPath)) throw new Error('Chiave di cifratura assente. Ripristina il secret encryption_key dal backup.');
   } catch (error) {
     connection?.release();
@@ -76,6 +58,7 @@ async function createMariaDatabase(config = readConfig()) {
   async function findSession(profileId, id) { return (await query(`SELECT ${sessionProjection} FROM planned_sessions WHERE id = ? AND profile_id = ?`, [id, profileId]))[0]; }
   return {
     ...createGarminRepository({ query, transaction, keyPath: config.encryptionKeyPath }),
+    ...createWorkoutRepository({ query, transaction }),
     async ready() { await query('SELECT 1'); },
     async createUser({ username, email, passwordHash }) {
       const id = randomUUID(); const profileId = randomUUID(); const createdAt = now();

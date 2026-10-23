@@ -96,6 +96,7 @@ try {
       "shared",
       "langs",
       "db/migrations/mariadb",
+      "scripts/gymfit-import.js",
       "frontend",
       "vite.config.mjs",
       "deploy",

@@ -42,5 +42,5 @@ export default function AccountApp() {
   }
   if (loading) return <main className="auth-loading" role="status"><LoaderCircle size={28} className="spin" /><span>{t('common.loading')}</span></main>;
   if (error) return <main className="auth-loading"><p role="alert">{messageText(error)}</p><button className="button primary" onClick={() => restore()}>{t('common.retry')}</button></main>;
-  return account ? <App key={account.user.id} user={account.user} onLogout={logout} /> : <AuthScreen onAuthenticated={authenticated} />;
+  return account ? <App key={account.user.id} user={account.user} initialProfile={account.profile} onLogout={logout} /> : <AuthScreen onAuthenticated={authenticated} />;
 }

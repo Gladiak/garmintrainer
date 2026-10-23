@@ -39,7 +39,7 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
   await admin.query('CREATE TABLE schema_migrations(version INT PRIMARY KEY)');
   await admin.query('INSERT INTO schema_migrations(version) VALUES (1)');
   database = await createMariaDatabase(config);
-  assert.equal(Number((await admin.query('SELECT MAX(version) AS version FROM schema_migrations'))[0].version), 5);
+  assert.equal(Number((await admin.query('SELECT MAX(version) AS version FROM schema_migrations'))[0].version), 9);
   const base = await listen(t, createApp({ databaseProvider: () => database, config }));
   const send = (endpoint, { method = 'GET', body, headers = {} } = {}) => fetch(`${base}/api${endpoint}`, {
     method, headers: { ...headers, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body),

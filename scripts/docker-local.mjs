@@ -6,10 +6,10 @@ import { isEncrypted } from "./secret-files.mjs";
 
 const cwd = fileURLToPath(new URL("../", import.meta.url));
 const action = process.argv[2] || "up";
-if (!["up", "down", "logs", "db", "dev", "test"].includes(action))
+if (!["up", "down", "logs", "db", "dev", "test", "test-gymfit"].includes(action))
   throw new Error("Azione Docker non valida.");
 
-if (["up", "db", "dev", "test"].includes(action)) {
+if (["up", "db", "dev", "test", "test-gymfit"].includes(action)) {
   const files = [
     ["data/secrets/db_password", () => randomBytes(32).toString("hex")],
     ["data/secrets/db_root_password", () => randomBytes(32).toString("hex")],
@@ -58,10 +58,10 @@ function run(args) {
   return result.status ?? 1;
 }
 
-if (action === "test") {
+if (action === "test" || action === "test-gymfit") {
   const started = run(["up", "-d", "--wait", "db"]);
   process.exitCode =
-    started || run(["--profile", "test", "run", "--build", "--rm", "test"]);
+    started || run(["--profile", "test", "run", "--build", "--rm", "test", ...(action === "test-gymfit" ? ["node", "--test", "test/gymfit.integration.js"] : [])]);
 } else if (action === "dev") {
   process.exitCode = run([
     "-f",

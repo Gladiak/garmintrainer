@@ -10,6 +10,7 @@ const { getMariaDatabase, initializeDatabase } = require("./libs/mariadb");
 const { createAuthentication } = require("./libs/auth");
 const { createDashboardRouter } = require("./routes/dashboard");
 const { createProfilesRouter } = require("./routes/profiles");
+const { createWorkoutsRouter } = require("./routes/workouts");
 
 function createApp({ garminManager, databaseProvider = getMariaDatabase, config = readConfig() } = {}) {
   const garmin = garminManager || createGarminProfileManager({ databaseProvider, config: config.garmin });
@@ -24,6 +25,7 @@ function createApp({ garminManager, databaseProvider = getMariaDatabase, config 
   });
   app.use("/api", auth.sameOrigin);
   app.use("/api/profile", express.json({ limit: "7mb" }));
+  app.use("/api/workouts", express.json({ limit: "192kb" }));
   app.use(express.json({ limit: "32kb" }));
   app.locals.garmin = garmin;
 
@@ -37,6 +39,7 @@ function createApp({ garminManager, databaseProvider = getMariaDatabase, config 
   app.use("/api/profile", createProfilesRouter({ garmin, getDatabase: databaseProvider }));
   app.use("/api/garmin/auth", createGarminAuthRouter(garmin, databaseProvider));
   app.use("/api", createDashboardRouter({ garmin, getDatabase: databaseProvider }));
+  app.use('/api', createWorkoutsRouter({ getDatabase: databaseProvider }));
   app.use(express.static(path.join(__dirname, "dist")));
 
   app.use((req, res) => {

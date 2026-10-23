@@ -16,6 +16,9 @@
     "docker:logs": "node scripts/docker-local.mjs logs",
     "docker:db": "node scripts/docker-local.mjs db",
     "test:mariadb": "node scripts/docker-local.mjs test",
+    "test:gymfit:mariadb": "node scripts/docker-local.mjs test-gymfit",
+    "gymfit:import": "node scripts/gymfit-import.js",
+    "gymfit:import:docker": "node scripts/gymfit-import-docker.mjs",
     "dev:container": "node scripts/dev.mjs",
     "secrets:check": "node scripts/check-secrets.mjs --staged",
     "secrets:history": "node scripts/check-secrets.mjs --history"

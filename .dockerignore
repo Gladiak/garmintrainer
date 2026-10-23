@@ -10,3 +10,4 @@ coverage
 .postman
 *.log
 OPERATIONS.md
+/import-gymfit.command

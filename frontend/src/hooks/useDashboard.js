@@ -5,7 +5,7 @@ import { useCurrentDay } from './useCurrentDay';
 import { translationError } from '../lib/i18n';
 import catalog from '../../../shared/dashboard-modules.json';
 
-export function useDashboard(view = 'overview') {
+export function useDashboard(view = 'overview', { enabled = true } = {}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -71,14 +71,15 @@ export function useDashboard(view = 'overview') {
   }, [apply]);
 
   useEffect(() => {
+    if (!enabled) return;
     void load(false);
     return () => current.current?.abort();
-  }, [load, query]);
+  }, [load, query, enabled]);
 
   async function saveProfile(id, values) {
     const profile = await request('/profile', { method: 'PATCH', body: values });
     apply(previous => previous ? { ...previous, profile } : previous);
-    await load(false, Object.hasOwn(values, 'apiKey'));
+    if (enabled) await load(false, Object.hasOwn(values, 'apiKey'));
     return profile;
   }
   async function saveTheme(id, theme, darkMode) {
@@ -105,7 +106,7 @@ export function useDashboard(view = 'overview') {
   const visibleData = !data || sameRange ? data : { ...data, measurements: { ...data.measurements, daily: [], details: {} }, trainingContext: null, activities: { sessions: [], complete: false }, resourceStates: {} };
   const failure = sameRange && (Object.values(resourceErrors)[0] || Object.values(data?.resourceStates || {}).find(state => state.errorCode)?.errorCode);
 
-  return { view, data: visibleData, loading: loading || Boolean(data && !sameRange && !error), syncing, error, busyResources, resourceErrors: sameRange ? resourceErrors : {}, period,
+  return { view, data: visibleData, loading: enabled && (loading || Boolean(data && !sameRange && !error)), syncing, error, busyResources, resourceErrors: sameRange ? resourceErrors : {}, period,
     setPeriod: value => {
       setWellnessPeriod(value);
       setAnchors(previous => ({ ...previous, wellness: previous.wellness && shiftDay(previous.wellness, -(value - 1)) < shiftDay(currentDay, -89) ? shiftDay(currentDay, -90 + value) : previous.wellness }));

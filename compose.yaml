@@ -60,7 +60,7 @@ services:
       DB_PASSWORD_FILE: /run/secrets/db_root_password
     secrets:
       - db_root_password
-    command: ["node", "--test", "test/mariadb.integration.js"]
+    command: ["node", "--test", "test/mariadb.integration.js", "test/workouts.integration.js"]
 secrets:
   db_password:
     file: ./data/secrets/db_password

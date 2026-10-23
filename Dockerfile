@@ -24,6 +24,7 @@ COPY --chown=node:node helpers ./helpers
 COPY --chown=node:node shared ./shared
 COPY --chown=node:node langs ./langs
 COPY --chown=node:node db/migrations ./db/migrations
+COPY --chown=node:node scripts/gymfit-import.js ./scripts/gymfit-import.js
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s CMD node -e "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
