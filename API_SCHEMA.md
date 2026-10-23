@@ -58,9 +58,15 @@ suddivisi in tre pagine indipendenti:
   nuova sessione in un’unica barra, senza selettore giornaliero. I controlli vanno a
   capo su schermi stretti. Le risorse restano limitate ai moduli della sezione aperta.
 - `shared/dashboard-modules.json` definisce i tipi e le dipendenze;
-  `shared/dashboard-sections.json` definisce la selezione iniziale. Il layout v2 è
-  `{version: 2, sections: {overview: [...], wellness: [...]}}`, con massimo 12 moduli
-  per sezione, aggiunta/rimozione/riordino e istanze duplicate. Il piano è fisso.
+  `shared/dashboard-sections.json` definisce la selezione iniziale. Il layout v3 è
+  `{version: 3, sections: {overview: [...], wellness: [...]}}`. Ogni modulo salva
+  `{id, type, x, y, w, h}` su quattro colonne, con dimensioni minime definite dal
+  catalogo e senza sovrapposizioni. Ogni tipo compare al massimo una volta per
+  sezione; il limite corrisponde ai tipi ammessi nella pagina. Il piano è fisso.
+  I layout v1/v2 vengono convertiti con posizionamento deterministico e prima
+  istanza conservata in caso di duplicati. Nei settings la libreria filtra i tipi
+  già aggiunti e il canvas mostra solo nomi, con drag, resize e cestino. Il popup
+  mantiene dimensioni stabili al cambio sezione; le modifiche si applicano con Salva.
   I layout v1 vengono aggiornati senza modificare i dati: il planner diventa una
   pagina dedicata, i pannelli HRV/sonno/stress passano al Benessere predefinito,
   la Panoramica riceve i box di allenamento. La precedente card `training-summary`
@@ -324,29 +330,33 @@ Le attività perdono invece il vincolo fisso dei due mesi: seguono il filtro com
 
 ### Moduli dinamici e responsabilità del layout
 
-Ogni card, grafico, pannello sonno, attività e planner diventa un'istanza con ID
-stabile. La posizione non è l'identità del modulo. Più istanze dello stesso tipo
-possono condividere dati, per esempio due grafici dello stesso periodo con metriche
-diverse. Partirei da pochi componenti concreti e un catalogo di metadati, evitando
-un motore di plugin o classi generiche per questo progetto personale.
+Ogni card, grafico e pannello ha un ID stabile e un tipo del catalogo condiviso.
+La posizione non è l'identità del modulo. Lo stesso tipo è disponibile in entrambe
+le pagine ammesse, ma non si duplica nella stessa pagina. Il planner resta separato.
 
-Contratto di configurazione proposto, da validare anche sul backend:
+Contratto di configurazione v3, validato anche sul backend:
 
 ```json
 {
-  "version": 1,
-  "modules": [
-    { "id": "battery-main", "type": "body-battery" },
-    { "id": "hrv-summary", "type": "hrv-card" }
-  ]
+  "version": 3,
+  "sections": {
+    "overview": [
+      { "id": "battery-main", "type": "body-battery", "x": 0, "y": 0, "w": 2, "h": 7 },
+      { "id": "hrv-summary", "type": "hrv-card", "x": 2, "y": 0, "w": 1, "h": 3 }
+    ],
+    "wellness": []
+  }
 }
 ```
 
-L'ordine nell'array determina l'ordine visivo. Nel primo rilascio userei taglie
-predefinite `compact`/`wide` e griglia responsive, senza coordinate libere o layout
-mobile duplicati. Ogni istanza rimane aggiungibile, eliminabile e riordinabile
-anche tramite pulsanti accessibili. Le preferenze sono per profilo, versionate,
-con validazione dei tipi/opzioni e un numero massimo di istanze (proposta: 12).
+Le coordinate determinano l'ordine visivo e quello di lettura. Il catalogo dichiara
+le dimensioni predefinite, minime e massime per ogni componente. Spostamento e
+ridimensionamento agganciano le celle e spostano verso il basso eventuali collisioni.
+Su contenitori stretti si deriva una griglia a due o una colonna senza modificare
+il layout desktop salvato. L'editor supporta mouse, penna, touch e tastiera e lavora
+su una bozza locale per entrambe le pagine. Salva aggiorna il payload cifrato per
+profilo; Annulla lo lascia invariato. I layout precedenti mantengono gli ID e vengono
+convertiti deterministicamente, eliminando le istanze duplicate dopo la prima.
 Salvare solo configurazione, mai copie dei dati Garmin dentro il layout.
 
 Il catalogo dichiara: tipo, componente, modalità supportate, opzioni ammesse e

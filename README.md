@@ -13,9 +13,11 @@ training plan and saved language and theme preferences.
   Battery, stress, sleep, steps and daily training information.
 - Explore Wellbeing over 1/7/14/30 days: recovery, HRV status and personal baseline,
   sleep score, stress, respiration and SpO₂, when reported by your device.
-- Customize dashboard modules: add, remove and reorder panels for your profile.
-  Keep separate layouts for Overview and Wellbeing. The weekly planner has its
-  own full-width page.
+- Compose Overview and Wellbeing in Settings using a four-column grid: drag
+  components from the filtered library, move and resize them, or remove them
+  with the trash icon. Each component has minimum dimensions. The editor shows
+  names only and supports keyboard controls; changes apply on Save. Settings
+  keep the same size across sections. The weekly planner has its own page.
 - Keep imported measurements encrypted in MariaDB, including their dates and
   Garmin identifiers. Missing device measurements stay explicitly unavailable.
 - Manage a personal profile with name, main sport, optional photo and Garmin key.
@@ -53,6 +55,28 @@ The interface translation catalogs are in `langs/`. Garmin endpoint controllers
 are in `controllers/`; shared transport, validation, normalization and encrypted
 storage helpers are in `helpers/`. The public API catalog and design study are
 in [API_SCHEMA.md](API_SCHEMA.md).
+
+## Dashboard component library
+
+`shared/dashboard-modules.json` defines each integrated component, its API resources,
+allowed pages and `grid` dimensions (`w`, `h`, `minW`, `minH`, `maxW`, `maxH`).
+`frontend/src/components/dashboard/ModuleLibrary.jsx` binds these definitions to
+standard summary cards and data panels. Add a new renderer and its normalized
+resources before exposing another API capability in the library.
+
+`shared/dashboard-grid.mjs` owns placement, collision handling and responsive
+reflow. Layout v3 stores `{id, type, x, y, w, h}` for each component in
+`sections.overview` and `sections.wellness`. The API validates integer coordinates,
+component minima, page eligibility, unique types per page and non-overlap. Old
+layouts migrate deterministically, retaining the first instance of duplicate types.
+The database continues to store the encrypted layout payload without a schema change.
+
+The editor uses Pointer Events for mouse, pen and touch, with edge scrolling and
+Escape to cancel. Clicking a library item also adds it; arrow keys move a focused
+component, arrow keys on its corner handle resize it, and Delete removes it.
+Only Save persists the draft. The four-column desktop geometry is shared with the
+actual pages; narrower containers derive a two- or one-column arrangement without
+overwriting saved positions. Editor interactions do not request Garmin data.
 
 ## Requirements
 

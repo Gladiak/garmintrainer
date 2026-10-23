@@ -245,7 +245,7 @@ test('stored v1 layout upgrades to separate editable sections and a fixed plan',
   const { upgradeLayout, defaultLayout, viewModules } = require('../helpers/dashboard-layout');
   const old = layout('heart-card', 'hrv', 'sleep', 'stress', 'planner', 'activities');
   const upgraded = upgradeLayout(old);
-  assert.equal(upgraded.version, 2);
+  assert.equal(upgraded.version, 3);
   assert.deepEqual(upgraded.sections.overview.map(module => module.type), ['heart-card', 'activities', 'training-status']);
   assert.deepEqual(upgraded.sections.wellness, defaultLayout.sections.wellness);
   assert.deepEqual(viewModules(upgraded, 'plan'), [{ id: 'planner', type: 'planner' }]);
@@ -405,10 +405,10 @@ test('merged activity module upgrades saved layouts without duplicating or losin
     [[recorded, summary, heart], [recorded, heart]],
     [[heart, summary], [heart, { ...summary, type: 'activities' }]],
     [[summary, { ...summary, id: 'other-summary' }], [{ ...summary, type: 'activities' }]],
-    [[recorded, { ...recorded, id: 'intentional-copy' }, summary], [recorded, { ...recorded, id: 'intentional-copy' }]],
+    [[recorded, { ...recorded, id: 'intentional-copy' }, summary], [recorded]],
   ]) {
     const upgraded = upgradeLayout({ version: 2, sections: { overview, wellness } });
-    assert.deepEqual(upgraded.sections.overview, expected);
+    assert.deepEqual(upgraded.sections.overview.map(({ id, type }) => ({ id, type })), expected);
     assert.deepEqual(upgraded.sections.wellness, wellness);
     assert.deepEqual(upgradeLayout(upgraded), upgraded, 'migration is idempotent');
   }

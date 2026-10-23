@@ -171,7 +171,7 @@ test('MariaDB reale: account, cifratura, isolamento e persistenza dopo riavvio',
     const [row] = await admin.query('SELECT payload FROM dashboard_layouts WHERE profile_id = ?', [a.profile.id]);
     assert.match(row.payload, /^v1\./); assert.ok(!row.payload.includes('only-sleep'));
     // Preserve all sources, with a custom order to verify the saved layout survives reopening.
-    persistedLayout = { version: 2, sections: { overview: [...defaultLayout.sections.overview].reverse(), wellness: defaultLayout.sections.wellness } };
+    persistedLayout = { version: 3, sections: { overview: [...defaultLayout.sections.overview].reverse(), wellness: defaultLayout.sections.wellness } };
     await database.saveDashboardLayout(a.profile.id, persistedLayout);
   });
   let emptyAccount;

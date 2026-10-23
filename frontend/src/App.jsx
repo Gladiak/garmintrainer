@@ -100,7 +100,7 @@ export default function App({ user, onLogout }) {
     </div>
     {notice && <div className="toast" role="status"><CircleCheck size={17} /><span>{messageText(notice)}</span><button className="icon-button" onClick={() => setNotice('')} aria-label={t('notices.close')}><X size={16} /></button></div>}
     {profile && (profileDialog || profile.needsCompletion) && <ProfileModal key={profile.id} profile={profile} garminStatusKey={garminStatusKey} required={profile.needsCompletion} onClose={() => setProfileDialog(null)} onSave={async (id, values) => { await dashboard.saveProfile(id, values); setProfileDialog(null); setNotice({ key: 'notices.profileSaved' }); }} />}
-    {settingsOpen && <SettingsModal layout={data?.layout} onSaveLayout={dashboard.saveLayout} profile={profile} onClose={() => setSettingsOpen(false)} onProfiles={() => { setSettingsOpen(false); setProfileDialog('form'); }} onSave={async (id, theme, darkMode) => { await dashboard.saveTheme(id, theme, darkMode); setNotice({ key: 'notices.settingsSaved' }); }} />}
+    {settingsOpen && <SettingsModal key={profile?.id} initialView={activeNav} layout={data?.layout} onSaveLayout={dashboard.saveLayout} profile={profile} onClose={() => setSettingsOpen(false)} onProfiles={() => { setSettingsOpen(false); setProfileDialog('form'); }} onSave={async (id, theme, darkMode) => { await dashboard.saveTheme(id, theme, darkMode); setNotice({ key: 'notices.settingsSaved' }); }} />}
 
   </div>;
 }
