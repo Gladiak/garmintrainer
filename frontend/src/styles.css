@@ -4109,23 +4109,30 @@ select:not([multiple]):not([size]) {
 .activity-tooltip { width: min(460px, calc(100vw - 32px)); max-width: 480px; }
 .activity-tooltip small { line-height: 1.65; }
 
-/* Responsive Nivo charts expand inside each card, including rectangular heatmap cells. */
+/* Responsive Nivo charts use the space left by headings, context and legends. */
 .dashboard-module.wide { display: flex; flex-direction: column; min-height: 440px; }
 .dashboard-module.wide > .panel-heading, .dashboard-module.wide > .module-period, .dashboard-module.wide > .module-status { flex-shrink: 0; }
 .module-content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-.module-content > * { flex-shrink: 0; }
-.dashboard-module .module-content .trend-chart { flex: 1 0 280px; height: auto; min-height: 280px; width: 100%; }
-.dashboard-module .module-content .sleep-chart { flex: 1 0 240px; height: auto; min-height: 240px; width: 100%; }
-.dashboard-module .module-content .stress-duration-chart { flex: 1 0 210px; height: auto; min-height: 210px; width: 100%; }
-.dashboard-module .module-content .activity-range-chart { flex: 1 0 210px; height: auto; min-height: 210px; width: 100%; }
-.module-content > .module-details { flex: 0 1 auto; max-height: 260px; }
-.module-content > .activity-table { max-height: 240px; }
-.module-content .chart-empty, .module-content .sleep-empty { flex: 1; min-height: 200px; }
+.module-content > * { flex-shrink: 0; min-width: 0; }
+.dashboard-module .module-content :is(.trend-chart, .sleep-chart, .stress-duration-chart, .activity-range-chart) {
+  flex: 1 1 0; height: auto; min-height: 0; min-width: 0; width: 100%; max-width: 100%;
+}
+.module-content :is(.trend-chart, .sleep-chart, .stress-duration-chart, .activity-range-chart) svg { display: block; }
+.module-content > .module-details { flex: 0 1 auto; max-height: 30%; }
+.module-content > .activity-table { max-height: 25%; }
+.module-content .chart-empty, .module-content .sleep-empty { flex: 1 1 0; height: auto; min-height: 0; }
+/* Activity totals leave room for the calendar even at the minimum card size. */
+.configured-grid [data-module-type="activities"] .training-load-summary { padding: 8px 0; }
+.configured-grid [data-module-type="activities"] .training-load-legend { margin-top: 8px; }
+.configured-grid [data-module-type="activities"] .activity-totals { margin: 8px 0; gap: 12px; }
+.configured-grid [data-module-type="activities"] .activity-totals dt { margin-bottom: 4px; }
+.configured-grid [data-module-type="activities"] .activity-totals dd { font-size: 22px; }
+.configured-grid [data-module-type="activities"] .module-note { margin: 4px 0; }
+.configured-grid [data-module-type="activities"] .activity-table { max-height: 20%; margin-top: 8px; }
 .activity-table th:first-child { white-space: nowrap; }
 .activity-table .activity-detail-cell { color: var(--text-muted); font-size: 10px; line-height: 1.7; white-space: normal; min-width: 140px; }
 @media (max-width: 600px) {
   .dashboard-module.wide { min-height: 400px; }
-  .dashboard-module .module-content .trend-chart { min-height: 240px; flex-basis: 240px; }
 }
 
 /* Each section owns a four-column desktop layout. */
@@ -4242,6 +4249,9 @@ main { padding-top: 24px; }
 .configured-grid.section-modules .dashboard-module.compact { display: flex; flex-direction: column; padding: 20px; overflow: auto; }
 .configured-grid .metric-card .metric-caption { margin-top: auto; padding-top: 8px; }
 .configured-grid .module-content { overflow: auto; overscroll-behavior: contain; }
+.configured-grid .module-content:has(.trend-chart, .sleep-chart, .stress-duration-chart, .activity-range-chart, .chart-empty, .sleep-empty) {
+  overflow: clip;
+}
 .configured-grid .module-note:only-child { grid-column: 1 / -1; }
 
 /* Name-only page composition, independent of the Garmin data renderers. */
